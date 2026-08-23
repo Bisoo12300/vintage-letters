@@ -118,6 +118,13 @@ Chạy `npm run dev:backend` → log sẽ hiện `Using PostgreSQL (Neon)`.
 
 ## Troubleshooting
 
+**`Exited with status 127` khi build/deploy**  
+→ Render đang chạy sai thư mục hoặc lệnh. Trên dashboard kiểm tra:
+- **Root Directory** = `backend` (bắt buộc)
+- **Build Command** = `npm install`
+- **Start Command** = `node src/index.js` (hoặc `npm start`)
+- Không dùng lệnh từ root repo (`npm run build` của frontend / `concurrently`)
+
 **`db: "json"` thay vì `"postgres"` trên production**  
 → `DATABASE_URL` chưa set hoặc sai trên Render. Kiểm tra Environment Variables.
 
