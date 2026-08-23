@@ -16,7 +16,7 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: 'Vintage Letters — Words from the Heart',
+  title: 'Clair de Lune — Words from the Heart',
   description: 'Write letters on aged paper, share through QR codes',
 };
 

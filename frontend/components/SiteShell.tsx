@@ -23,7 +23,7 @@ export function SiteShell({
                 ✉
               </span>
               <span className="font-display text-base font-semibold tracking-wide text-mora-brown-800 sm:text-lg">
-                Vintage Letters
+                Clair de Lune
               </span>
             </Link>
             <nav className="flex items-center gap-1 sm:gap-2">
