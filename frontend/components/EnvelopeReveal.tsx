@@ -66,10 +66,10 @@ function LetterCard({
     <div
       onPointerDown={draggable ? onPullDown : undefined}
       className={`flex h-[min(320px,72vw)] w-full flex-col overflow-hidden rounded-t-xl bg-white ${draggable ? 'cursor-grab touch-none select-none active:cursor-grabbing' : ''}`}
-      style={draggable ? { touchAction: 'none' } : undefined}
       style={{
         border: '2px solid rgba(107, 90, 74, 0.5)',
         boxShadow: 'inset 0 0 0 1px rgba(196, 181, 163, 0.45)',
+        ...(draggable ? { touchAction: 'none' as const } : {}),
       }}
     >
       <div className="mx-1.5 mt-1.5 flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-lg border border-mora-brown-400/20 bg-parchment-50">
