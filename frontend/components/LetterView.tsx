@@ -40,7 +40,7 @@ export function LetterView({ id }: { id: string }) {
 
   if (!revealed) {
     return (
-      <main className="flex min-h-screen items-center justify-center overflow-visible bg-mora-cream px-4 py-10">
+      <main className="flex min-h-screen items-center justify-center overflow-x-hidden bg-mora-cream px-4 py-10 overscroll-none">
         <EnvelopeReveal letter={letter} onRevealed={() => setRevealed(true)} />
       </main>
     );

@@ -1,4 +1,13 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+function normalizeApiUrl(raw: string): string {
+  let url = raw.trim().replace(/\/$/, '');
+  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+  if (!url.endsWith('/api')) url = `${url.replace(/\/api$/, '')}/api`;
+  return url;
+}
+
+const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api');
+
+export { API_URL };
 
 export async function apiFetch<T>(
   path: string,
@@ -12,10 +21,16 @@ export async function apiFetch<T>(
   if (adminPassword) headers['x-admin-password'] = adminPassword;
   if (readerToken) headers['x-reader-token'] = readerToken;
 
-  const res = await fetch(`${API_URL}${path}`, { ...fetchOptions, headers });
+  const url = `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { ...fetchOptions, headers });
+  } catch {
+    throw new Error(`Cannot reach API at ${API_URL} (network/CORS?)`);
+  }
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'Request failed');
+    const err = await res.json().catch(() => ({ error: res.statusText || `HTTP ${res.status}` }));
+    throw new Error(err.error || `Request failed (${res.status})`);
   }
   return res.json();
 }

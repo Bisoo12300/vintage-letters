@@ -24,6 +24,16 @@ export default function AdminPage() {
     loadLetters().catch(() => setError('Could not load letters'));
   }, [loadLetters]);
 
+  useEffect(() => {
+    if (!selectedId) return;
+    const refresh = () => {
+      loadStats(selectedId).catch(() => {});
+      loadLetters().catch(() => {});
+    };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [selectedId, loadLetters]);
+
   async function loadStats(id: string) {
     const data = await apiFetch<LetterStats>(`/letters/${id}/stats`);
     setStats(data);

@@ -1,18 +1,19 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { apiFetch } from '@/lib/api';
+import { API_URL, apiFetch } from '@/lib/api';
 
 export function useReadingTracker(letterId: string) {
   const sessionIdRef = useRef<string | null>(null);
   const startTimeRef = useRef<number>(0);
+  const startingRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     if (!letterId) return;
     let active = true;
 
     async function startSession() {
-      try {
+      const task = (async () => {
         const data = await apiFetch<{ sessionId: string }>(
           `/letters/${letterId}/read-start`,
           { method: 'POST' }
@@ -21,33 +22,37 @@ export function useReadingTracker(letterId: string) {
           sessionIdRef.current = data.sessionId;
           startTimeRef.current = Date.now();
         }
+      })();
+      startingRef.current = task;
+      try {
+        await task;
       } catch {
         /* tracking is best-effort */
+      } finally {
+        if (startingRef.current === task) startingRef.current = null;
       }
     }
 
-    startSession();
+    void startSession();
 
     function endSession() {
       const sessionId = sessionIdRef.current;
       if (!sessionId) return;
       sessionIdRef.current = null;
 
-      const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
+      const durationSeconds = Math.max(
+        1,
+        Math.round((Date.now() - startTimeRef.current) / 1000)
+      );
       const body = JSON.stringify({ sessionId, durationSeconds });
 
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/letters/${letterId}/read-end`,
-          new Blob([body], { type: 'application/json' })
-        );
-      } else {
-        apiFetch(`/letters/${letterId}/read-end`, {
-          method: 'POST',
-          body,
-          keepalive: true,
-        }).catch(() => {});
-      }
+      // ponytail: sendBeacon fails cross-origin with JSON (no CORS preflight) — use fetch+keepalive
+      fetch(`${API_URL}/letters/${letterId}/read-end`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+      }).catch(() => {});
     }
 
     const onHide = () => {
@@ -61,7 +66,12 @@ export function useReadingTracker(letterId: string) {
       active = false;
       window.removeEventListener('pagehide', endSession);
       document.removeEventListener('visibilitychange', onHide);
-      endSession();
+      const pending = startingRef.current;
+      if (pending) {
+        void pending.finally(endSession);
+      } else {
+        endSession();
+      }
     };
   }, [letterId]);
 }

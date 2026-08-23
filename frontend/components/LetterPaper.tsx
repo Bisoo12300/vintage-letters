@@ -41,7 +41,7 @@ export function LetterPaper({ template, title, content, children }: LetterPaperP
           </h1>
 
           <div
-            className="font-body whitespace-pre-wrap text-lg leading-relaxed text-mora-brown-700"
+            className="font-body mx-auto w-[60%] whitespace-pre-wrap text-lg leading-relaxed text-mora-brown-700"
             style={{ textIndent: '1.5em' }}
           >
             {content}

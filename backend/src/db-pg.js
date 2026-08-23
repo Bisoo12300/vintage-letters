@@ -6,8 +6,10 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function createPgDb(connectionString) {
+  // channel_binding=require breaks node-pg on some hosts (e.g. Railway)
+  const url = connectionString.replace(/([?&])channel_binding=[^&]*&?/g, '$1').replace(/[?&]$/, '');
   const pool = new pg.Pool({
-    connectionString,
+    connectionString: url,
     ssl: { rejectUnauthorized: false },
   });
 
@@ -19,6 +21,7 @@ export async function createPgDb(connectionString) {
   return {
     kind: 'postgres',
     init,
+    ping: () => pool.query('SELECT 1'),
 
     async getLetters() {
       const { rows } = await pool.query(

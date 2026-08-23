@@ -25,6 +25,7 @@ export function createJsonDb() {
   return {
     kind: 'json',
     async init() {},
+    async ping() {},
 
     async getLetters() {
       return store.letters;

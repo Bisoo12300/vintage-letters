@@ -5,8 +5,14 @@ import { requireReader } from './auth.js';
 
 const router = Router();
 
-router.get('/health', (_req, res) => {
-  res.json({ ok: true, db: getDb().kind });
+router.get('/health', async (_req, res) => {
+  try {
+    const db = getDb();
+    await db.ping();
+    res.json({ ok: true, db: db.kind });
+  } catch (err) {
+    res.status(503).json({ ok: false, db: getDb().kind, error: err.message });
+  }
 });
 
 router.post('/letters', async (req, res) => {
@@ -26,7 +32,8 @@ router.post('/letters', async (req, res) => {
   };
   await db.insertLetter(letter);
 
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  let frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:3000').trim().replace(/\/$/, '');
+  if (!/^https?:\/\//i.test(frontendUrl)) frontendUrl = `https://${frontendUrl}`;
   res.status(201).json({
     ...letter,
     url: `${frontendUrl}/letter/${id}`,

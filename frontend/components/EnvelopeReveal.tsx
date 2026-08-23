@@ -7,8 +7,12 @@ type Phase = 'idle' | 'seal' | 'flap' | 'pull' | 'exit';
 
 const SEAL_MS = 380;
 const FLAP_MS = 920;
-const LETTER_PULL_MAX = 216;
-const LETTER_REVEAL = 0.82;
+const LETTER_REVEAL = 0.65;
+
+function pullMaxPx() {
+  if (typeof window === 'undefined') return 120;
+  return Math.round(Math.min(160, Math.max(100, window.innerWidth * 0.26)));
+}
 
 const VB = { w: 560, h: 400 };
 const BODY = { x: 48, y: 128, w: 464, h: 224 };
@@ -27,16 +31,13 @@ function templateBg(templateId: string) {
   return TEMPLATES.find((t) => t.id === templateId)?.background ?? TEMPLATES[0].background;
 }
 
-function PullTab({ onDown, onMove, onUp }: { onDown: (e: React.PointerEvent) => void; onMove: (e: React.PointerEvent) => void; onUp: () => void }) {
+function PullTab({ onDown }: { onDown: (e: React.PointerEvent) => void }) {
   return (
     <div
       role="slider"
       aria-label="Pull letter out"
       onPointerDown={onDown}
-      onPointerMove={onMove}
-      onPointerUp={onUp}
-      onPointerCancel={onUp}
-      className="cursor-grab touch-none active:cursor-grabbing"
+      className="cursor-grab touch-none select-none active:cursor-grabbing"
       style={{ touchAction: 'none' }}
     >
       <div
@@ -50,10 +51,22 @@ function PullTab({ onDown, onMove, onUp }: { onDown: (e: React.PointerEvent) => 
   );
 }
 
-function LetterCard({ title, background }: { title: string; background: string }) {
+function LetterCard({
+  title,
+  background,
+  draggable,
+  onPullDown,
+}: {
+  title: string;
+  background: string;
+  draggable?: boolean;
+  onPullDown?: (e: React.PointerEvent) => void;
+}) {
   return (
     <div
-      className="flex h-[320px] w-full flex-col overflow-hidden rounded-t-xl bg-white"
+      onPointerDown={draggable ? onPullDown : undefined}
+      className={`flex h-[min(320px,72vw)] w-full flex-col overflow-hidden rounded-t-xl bg-white ${draggable ? 'cursor-grab touch-none select-none active:cursor-grabbing' : ''}`}
+      style={draggable ? { touchAction: 'none' } : undefined}
       style={{
         border: '2px solid rgba(107, 90, 74, 0.5)',
         boxShadow: 'inset 0 0 0 1px rgba(196, 181, 163, 0.45)',
@@ -74,24 +87,25 @@ function LetterWithPull({
   template,
   showPull,
   onPullDown,
-  onPullMove,
-  onPullUp,
 }: {
   title: string;
   template: string;
   showPull: boolean;
   onPullDown: (e: React.PointerEvent) => void;
-  onPullMove: (e: React.PointerEvent) => void;
-  onPullUp: () => void;
 }) {
   return (
     <div className="flex w-full flex-col items-center">
       {showPull && (
         <div className="relative z-10 -mb-1.5 shrink-0">
-          <PullTab onDown={onPullDown} onMove={onPullMove} onUp={onPullUp} />
+          <PullTab onDown={onPullDown} />
         </div>
       )}
-      <LetterCard title={title} background={templateBg(template)} />
+      <LetterCard
+        title={title}
+        background={templateBg(template)}
+        draggable={showPull}
+        onPullDown={onPullDown}
+      />
     </div>
   );
 }
@@ -103,8 +117,6 @@ function EnvelopeAnimated({
   dragging,
   onOpen,
   onPullDown,
-  onPullMove,
-  onPullUp,
 }: {
   letter: Letter;
   phase: Phase;
@@ -112,8 +124,6 @@ function EnvelopeAnimated({
   dragging: boolean;
   onOpen: () => void;
   onPullDown: (e: React.PointerEvent) => void;
-  onPullMove: (e: React.PointerEvent) => void;
-  onPullUp: () => void;
 }) {
   const flapOpen = phase === 'flap' || phase === 'pull' || phase === 'exit';
   const sealBroken = phase !== 'idle';
@@ -195,8 +205,6 @@ function EnvelopeAnimated({
                 template={letter.template}
                 showPull={phase === 'pull'}
                 onPullDown={onPullDown}
-                onPullMove={onPullMove}
-                onPullUp={onPullUp}
               />
             </div>
           </div>
@@ -265,51 +273,81 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef({ startY: 0, startPull: 0 });
   const pullRef = useRef(0);
+  const draggingRef = useRef(false);
+  const pullMaxRef = useRef(pullMaxPx());
+  const dragCleanupRef = useRef<(() => void) | null>(null);
 
   const finish = useCallback(() => {
-    pullRef.current = LETTER_PULL_MAX;
-    setLetterPull(LETTER_PULL_MAX);
+    const max = pullMaxRef.current;
+    pullRef.current = max;
+    setLetterPull(max);
     setPhase('exit');
     setTimeout(onRevealed, 450);
   }, [onRevealed]);
 
   const open = useCallback(() => {
     if (phase !== 'idle') return;
+    pullMaxRef.current = pullMaxPx();
     setPhase('seal');
     setTimeout(() => setPhase('flap'), SEAL_MS);
     setTimeout(() => setPhase('pull'), FLAP_MS);
   }, [phase]);
 
-  const onPullDown = (e: React.PointerEvent) => {
-    if (phase !== 'pull') return;
-    dragRef.current = { startY: e.clientY, startPull: letterPull };
-    setDragging(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-
-  const onPullMove = (e: React.PointerEvent) => {
-    if (!dragging) return;
-    const dy = dragRef.current.startY - e.clientY;
-    const next = Math.min(LETTER_PULL_MAX, Math.max(0, dragRef.current.startPull + dy));
-    pullRef.current = next;
-    setLetterPull(next);
-  };
-
-  const onPullUp = () => {
-    if (!dragging) return;
+  const endPull = useCallback(() => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
     setDragging(false);
-    if (pullRef.current / LETTER_PULL_MAX >= LETTER_REVEAL) finish();
+    dragCleanupRef.current?.();
+    dragCleanupRef.current = null;
+
+    const max = pullMaxRef.current;
+    if (pullRef.current / max >= LETTER_REVEAL) finish();
     else {
       pullRef.current = 0;
       setLetterPull(0);
     }
-  };
+  }, [finish]);
+
+  const onPullDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (phase !== 'pull') return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      draggingRef.current = true;
+      dragRef.current = { startY: e.clientY, startPull: pullRef.current };
+      setDragging(true);
+
+      const onMove = (ev: PointerEvent) => {
+        if (!draggingRef.current) return;
+        ev.preventDefault();
+        const dy = dragRef.current.startY - ev.clientY;
+        const max = pullMaxRef.current;
+        const next = Math.min(max, Math.max(0, dragRef.current.startPull + dy));
+        pullRef.current = next;
+        setLetterPull(next);
+      };
+
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+        endPull();
+      };
+
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+      dragCleanupRef.current = onUp;
+    },
+    [phase, endPull]
+  );
 
   const hint =
     phase === 'idle' ? 'Tap to open the envelope' : phase === 'pull' ? 'Pull the letter out' : '';
 
   return (
-    <div className="group relative mx-auto w-full max-w-2xl overflow-visible">
+    <div className="group relative mx-auto w-full max-w-2xl overflow-visible overscroll-none" style={{ touchAction: phase === 'pull' ? 'none' : 'pan-y' }}>
       <div
         className="relative w-full overflow-visible transition-transform hover:scale-[1.01]"
         style={{ aspectRatio: '560 / 400', minHeight: 280 }}
@@ -321,8 +359,6 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
           dragging={dragging}
           onOpen={open}
           onPullDown={onPullDown}
-          onPullMove={onPullMove}
-          onPullUp={onPullUp}
         />
       </div>
       <p className="mt-8 text-center font-display text-sm italic text-mora-brown-400">{hint}</p>
