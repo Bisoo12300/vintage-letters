@@ -3,8 +3,13 @@ CREATE TABLE IF NOT EXISTS letters (
   title TEXT NOT NULL,
   content TEXT NOT NULL,
   template TEXT NOT NULL DEFAULT 'daisy-paper',
+  author TEXT NOT NULL DEFAULT 'moon',
+  reply_to TEXT REFERENCES letters(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE letters ADD COLUMN IF NOT EXISTS author TEXT NOT NULL DEFAULT 'moon';
+ALTER TABLE letters ADD COLUMN IF NOT EXISTS reply_to TEXT;
 
 CREATE TABLE IF NOT EXISTS reading_sessions (
   id TEXT PRIMARY KEY,

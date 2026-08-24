@@ -1,8 +1,12 @@
+'use client';
+
 import Link from 'next/link';
+import { useIdentity } from '@/components/IdentityGate';
+import { authorEmoji, authorLabel } from '@/lib/identity';
 
 const NAV = [
   { href: '/', label: 'Letterbook' },
-  { href: '/admin', label: 'Admin' },
+  { href: '/admin', label: 'My letters' },
   { href: '/archive', label: 'Archive' },
 ];
 
@@ -13,6 +17,8 @@ export function SiteShell({
   children: React.ReactNode;
   hideNav?: boolean;
 }) {
+  const { identity, switchIdentity } = useIdentity();
+
   return (
     <div className="flex min-h-screen flex-col">
       {!hideNav && (
@@ -36,6 +42,16 @@ export function SiteShell({
                   {item.label}
                 </Link>
               ))}
+              {identity && (
+                <button
+                  type="button"
+                  onClick={switchIdentity}
+                  className="rounded-full px-3 py-2 font-body text-sm text-mora-brown-700 transition hover:bg-mora-beige-100 sm:px-4"
+                  title="Switch identity"
+                >
+                  {authorEmoji(identity)} {authorLabel(identity)}
+                </button>
+              )}
             </nav>
           </div>
         </header>

@@ -1,13 +1,26 @@
+import Link from 'next/link';
 import { TEMPLATES } from '@/lib/api';
+import { authorEmoji, authorLabel } from '@/lib/identity';
 
 interface LetterPaperProps {
   template: string;
   title: string;
   content: string;
+  author?: string;
+  replyToId?: string | null;
+  replyToTitle?: string | null;
   children?: React.ReactNode;
 }
 
-export function LetterPaper({ template, title, content, children }: LetterPaperProps) {
+export function LetterPaper({
+  template,
+  title,
+  content,
+  author,
+  replyToId,
+  replyToTitle,
+  children,
+}: LetterPaperProps) {
   const tpl = TEMPLATES.find((t) => t.id === template) || TEMPLATES[0];
 
   return (
@@ -36,9 +49,26 @@ export function LetterPaper({ template, title, content, children }: LetterPaperP
             <span className="h-px flex-1 bg-gradient-to-r from-transparent via-mora-brown-400/30 to-transparent" />
           </div>
 
-          <h1 className="font-display mb-8 text-center text-2xl font-semibold text-mora-brown-800 sm:text-3xl">
+          <h1 className="font-display mb-2 text-center text-2xl font-semibold text-mora-brown-800 sm:text-3xl">
             {title}
           </h1>
+          {author && (
+            <p className={`font-body text-center text-sm text-mora-brown-500 ${replyToTitle ? 'mb-2' : 'mb-8'}`}>
+              {authorEmoji(author)} {authorLabel(author)}
+            </p>
+          )}
+          {replyToTitle && (
+            <p className="font-body mb-8 text-center text-sm italic text-mora-brown-400">
+              ↳ In reply to{' '}
+              {replyToId ? (
+                <Link href={`/letter/${replyToId}`} className="underline hover:text-mora-brown-600">
+                  {replyToTitle}
+                </Link>
+              ) : (
+                replyToTitle
+              )}
+            </p>
+          )}
 
           <div
             className="font-body mx-auto w-[60%] whitespace-pre-wrap text-lg leading-relaxed text-mora-brown-700"

@@ -8,6 +8,7 @@ import {
   formatTimelineTime,
   type TimelineLetter,
 } from '@/lib/api';
+import { authorEmoji } from '@/lib/identity';
 
 const DRAWER_W = 320;
 const CLOSED_X = -DRAWER_W;
@@ -110,8 +111,17 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
                               }`}
                             >
                               <p className={`font-display text-sm font-medium ${active ? 'text-white' : ''}`}>
-                                {letter.title}
+                                {authorEmoji(letter.author)} {letter.title}
                               </p>
+                              {letter.reply_to_title && (
+                                <p
+                                  className={`mt-0.5 font-body text-xs italic ${
+                                    active ? 'text-mora-beige-100/90' : 'text-mora-brown-400'
+                                  }`}
+                                >
+                                  ↳ Re: {letter.reply_to_title}
+                                </p>
+                              )}
                               <p
                                 className={`mt-0.5 font-body text-xs ${
                                   active ? 'text-mora-beige-100' : 'text-mora-brown-400'

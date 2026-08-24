@@ -1,15 +1,13 @@
-export function requireAdmin(req, res, next) {
-  const password = req.headers['x-admin-password'] || req.query.admin;
-  if (password !== process.env.ADMIN_PASSWORD) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  next();
+export const AUTHORS = ['moon', 'fox'];
+
+export function parseAuthor(req) {
+  const author = String(req.headers['x-author'] || '').trim();
+  return AUTHORS.includes(author) ? author : null;
 }
 
-export function requireReader(req, res, next) {
-  const token = req.headers['x-reader-token'] || req.query.token;
-  if (token !== process.env.READER_TOKEN) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+export function requireAuthor(req, res, next) {
+  const author = parseAuthor(req);
+  if (!author) return res.status(401).json({ error: 'Choose who you are' });
+  req.author = author;
   next();
 }

@@ -15,6 +15,14 @@ function load() {
   return JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 }
 
+function withAuthor(letter) {
+  return {
+    ...letter,
+    author: letter.author || 'moon',
+    reply_to: letter.reply_to || null,
+  };
+}
+
 function save(store) {
   fs.writeFileSync(dataPath, JSON.stringify(store, null, 2));
 }
@@ -28,11 +36,12 @@ export function createJsonDb() {
     async ping() {},
 
     async getLetters() {
-      return store.letters;
+      return store.letters.map(withAuthor);
     },
 
     async getLetter(id) {
-      return store.letters.find((l) => l.id === id) || null;
+      const letter = store.letters.find((l) => l.id === id);
+      return letter ? withAuthor(letter) : null;
     },
 
     async insertLetter(letter) {
@@ -46,7 +55,7 @@ export function createJsonDb() {
       if (idx === -1) return null;
       store.letters[idx] = { ...store.letters[idx], ...updates };
       save(store);
-      return store.letters[idx];
+      return withAuthor(store.letters[idx]);
     },
 
     async deleteLetter(id) {
@@ -93,8 +102,11 @@ export function createJsonDb() {
       };
     },
 
-    async allLettersWithStats() {
-      return Promise.all(store.letters.map((l) => this.letterWithStats(l.id)));
+    async allLettersWithStats(author) {
+      const letters = author
+        ? store.letters.filter((l) => withAuthor(l).author === author)
+        : store.letters;
+      return Promise.all(letters.map((l) => this.letterWithStats(l.id)));
     },
   };
 }

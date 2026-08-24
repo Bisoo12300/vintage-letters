@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Lora, Nunito } from 'next/font/google';
+import { IdentityGate } from '@/components/IdentityGate';
 import './globals.css';
 
 const nunito = Nunito({
@@ -23,7 +24,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${nunito.variable} ${lora.variable}`}>
-      <body>{children}</body>
+      <body>
+        <IdentityGate>{children}</IdentityGate>
+      </body>
     </html>
   );
 }

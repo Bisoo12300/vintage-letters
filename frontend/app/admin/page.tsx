@@ -101,8 +101,8 @@ export default function AdminPage() {
       <div className="mx-auto max-w-5xl px-5 py-10 sm:px-8">
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-semibold text-mora-brown-800">Letterbook Admin</h1>
-            <p className="font-body mt-1 text-mora-brown-500">Create, edit & manage all letters</p>
+            <h1 className="font-display text-3xl font-semibold text-mora-brown-800">My letters</h1>
+            <p className="font-body mt-1 text-mora-brown-500">Create, edit & manage letters you wrote</p>
           </div>
           <button type="button" onClick={startNew} className="mora-btn-primary text-sm">
             + New Letter
@@ -112,7 +112,7 @@ export default function AdminPage() {
         <div className="grid gap-6 lg:grid-cols-5">
           <div className="space-y-3 lg:col-span-2">
             <h2 className="font-body text-sm font-medium text-mora-brown-500">
-              All Letters ({letters.length})
+              Your letters ({letters.length})
             </h2>
             {letters.length === 0 ? (
               <p className="font-body text-mora-brown-400">No letters yet.</p>

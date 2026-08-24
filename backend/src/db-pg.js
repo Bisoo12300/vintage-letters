@@ -25,14 +25,14 @@ export async function createPgDb(connectionString) {
 
     async getLetters() {
       const { rows } = await pool.query(
-        'SELECT id, title, content, template, created_at FROM letters ORDER BY created_at DESC'
+        'SELECT id, title, content, template, author, reply_to, created_at FROM letters ORDER BY created_at DESC'
       );
       return rows.map(formatLetter);
     },
 
     async getLetter(id) {
       const { rows } = await pool.query(
-        'SELECT id, title, content, template, created_at FROM letters WHERE id = $1',
+        'SELECT id, title, content, template, author, reply_to, created_at FROM letters WHERE id = $1',
         [id]
       );
       return rows[0] ? formatLetter(rows[0]) : null;
@@ -40,9 +40,17 @@ export async function createPgDb(connectionString) {
 
     async insertLetter(letter) {
       await pool.query(
-        `INSERT INTO letters (id, title, content, template, created_at)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [letter.id, letter.title, letter.content, letter.template, letter.created_at]
+        `INSERT INTO letters (id, title, content, template, author, reply_to, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          letter.id,
+          letter.title,
+          letter.content,
+          letter.template,
+          letter.author,
+          letter.reply_to || null,
+          letter.created_at,
+        ]
       );
       return letter;
     },
@@ -109,7 +117,7 @@ export async function createPgDb(connectionString) {
     async letterWithStats(id) {
       const { rows } = await pool.query(
         `SELECT
-           l.id, l.title, l.content, l.template, l.created_at,
+           l.id, l.title, l.content, l.template, l.author, l.reply_to, l.created_at,
            COUNT(rs.id) FILTER (WHERE rs.ended_at IS NOT NULL)::int AS read_count,
            COALESCE(SUM(rs.duration_seconds) FILTER (WHERE rs.ended_at IS NOT NULL), 0)::int AS total_read_seconds,
            MAX(rs.ended_at) FILTER (WHERE rs.ended_at IS NOT NULL) AS last_read_at
@@ -123,17 +131,21 @@ export async function createPgDb(connectionString) {
       return formatLetterStats(rows[0]);
     },
 
-    async allLettersWithStats() {
+    async allLettersWithStats(author) {
+      const params = author ? [author] : [];
+      const where = author ? 'WHERE l.author = $1' : '';
       const { rows } = await pool.query(
         `SELECT
-           l.id, l.title, l.content, l.template, l.created_at,
+           l.id, l.title, l.content, l.template, l.author, l.reply_to, l.created_at,
            COUNT(rs.id) FILTER (WHERE rs.ended_at IS NOT NULL)::int AS read_count,
            COALESCE(SUM(rs.duration_seconds) FILTER (WHERE rs.ended_at IS NOT NULL), 0)::int AS total_read_seconds,
            MAX(rs.ended_at) FILTER (WHERE rs.ended_at IS NOT NULL) AS last_read_at
          FROM letters l
          LEFT JOIN reading_sessions rs ON rs.letter_id = l.id
+         ${where}
          GROUP BY l.id
-         ORDER BY l.created_at DESC`
+         ORDER BY l.created_at DESC`,
+        params
       );
       return rows.map(formatLetterStats);
     },
@@ -146,6 +158,8 @@ function formatLetter(row) {
     title: row.title,
     content: row.content,
     template: row.template,
+    author: row.author || 'moon',
+    reply_to: row.reply_to || null,
     created_at: toIso(row.created_at),
   };
 }

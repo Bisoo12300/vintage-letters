@@ -1,3 +1,5 @@
+import { readStoredIdentity } from '@/lib/identity';
+
 function normalizeApiUrl(raw: string): string {
   let url = raw.trim().replace(/\/$/, '');
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
@@ -18,6 +20,8 @@ export async function apiFetch<T>(
     'Content-Type': 'application/json',
     ...(fetchOptions.headers as Record<string, string>),
   };
+  const author = readStoredIdentity();
+  if (author) headers['x-author'] = author;
   if (adminPassword) headers['x-admin-password'] = adminPassword;
   if (readerToken) headers['x-reader-token'] = readerToken;
 
@@ -40,6 +44,9 @@ export interface Letter {
   title: string;
   content: string;
   template: string;
+  author: string;
+  reply_to?: string | null;
+  reply_to_title?: string | null;
   created_at: string;
 }
 
@@ -62,12 +69,16 @@ export interface ArchiveLetter {
   id: string;
   title: string;
   template: string;
+  author: string;
   created_at: string;
 }
 
 export interface TimelineLetter {
   id: string;
   title: string;
+  author: string;
+  reply_to?: string | null;
+  reply_to_title?: string | null;
   created_at: string;
 }
 
@@ -107,6 +118,18 @@ export const TEMPLATES = [
     name: 'Daisy Meadow',
     background: '/backgrounds/daisy-paper.jpg',
     description: 'Vintage paper with white daisies',
+  },
+  {
+    id: 'torn-beige',
+    name: 'Torn Beige',
+    background: '/backgrounds/torn-beige.jpg',
+    description: 'Aged beige paper with torn edges',
+  },
+  {
+    id: 'christmas-letter',
+    name: 'Christmas Letter',
+    background: '/backgrounds/christmas-letter.jpg',
+    description: 'Vintage Christmas letter paper',
   },
 ] as const;
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { EnvelopeReveal } from '@/components/EnvelopeReveal';
 import { LetterPaper } from '@/components/LetterPaper';
 import { LetterTimelineDrawer } from '@/components/LetterTimelineDrawer';
@@ -16,6 +17,8 @@ export function LetterView({ id }: { id: string }) {
   useReadingTracker(revealed ? id : '');
 
   useEffect(() => {
+    setRevealed(false);
+    setLoading(true);
     apiFetch<Letter>(`/letters/${id}`)
       .then(setLetter)
       .catch(() => setError('This letter could not be found.'))
@@ -51,7 +54,19 @@ export function LetterView({ id }: { id: string }) {
       <LetterTimelineDrawer currentId={id} />
       <main className="flex min-h-screen items-center justify-center bg-mora-cream px-4 py-10 sm:px-6">
         <div className="animate-fade-in-up w-full max-w-2xl">
-          <LetterPaper template={letter.template} title={letter.title} content={letter.content} />
+          <LetterPaper
+            template={letter.template}
+            title={letter.title}
+            content={letter.content}
+            author={letter.author}
+            replyToTitle={letter.reply_to_title}
+            replyToId={letter.reply_to}
+          />
+          <div className="mt-6 flex justify-center">
+            <Link href={`/?reply_to=${letter.id}`} className="mora-btn-primary">
+              Reply to this letter
+            </Link>
+          </div>
         </div>
       </main>
     </>
