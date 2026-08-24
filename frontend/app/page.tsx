@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { apiFetch, TEMPLATES, type Letter } from '@/lib/api';
+import { apiFetch, TEMPLATES, type Letter, type TemplateId } from '@/lib/api';
 import { MoraHero, SiteShell } from '@/components/SiteShell';
 import { useIdentity } from '@/components/IdentityGate';
 import { authorEmoji, authorLabel } from '@/lib/identity';
@@ -15,7 +15,7 @@ function ComposeForm() {
 
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [template, setTemplate] = useState(TEMPLATES[0].id);
+  const [template, setTemplate] = useState<TemplateId>(TEMPLATES[0].id);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ url: string; qrUrl: string; id: string } | null>(null);
   const [error, setError] = useState('');

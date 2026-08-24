@@ -133,6 +133,8 @@ export const TEMPLATES = [
   },
 ] as const;
 
+export type TemplateId = (typeof TEMPLATES)[number]['id'];
+
 export function formatDuration(seconds: number): string {  if (seconds < 60) return `${seconds} sec`;
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
