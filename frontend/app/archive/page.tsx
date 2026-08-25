@@ -17,7 +17,7 @@ export default function ArchivePage() {
     if (!identity) return;
     setLoading(true);
     setError('');
-    apiFetch<ArchiveLetter[]>('/archive')
+    apiFetch<ArchiveLetter[]>('/archive', { author: identity })
       .then(setLetters)
       .catch((err) =>
         setError(err instanceof Error ? err.message : 'Could not load the archive')

@@ -132,8 +132,8 @@ export async function createPgDb(connectionString) {
     },
 
     async allLettersWithStats(author) {
-      const params = author ? [author] : [];
-      const where = author ? 'WHERE l.author = $1' : '';
+      // My letters only — never return the full shared inbox here
+      if (!author) return [];
       const { rows } = await pool.query(
         `SELECT
            l.id, l.title, l.content, l.template, l.author, l.reply_to, l.created_at,
@@ -142,10 +142,10 @@ export async function createPgDb(connectionString) {
            MAX(rs.ended_at) FILTER (WHERE rs.ended_at IS NOT NULL) AS last_read_at
          FROM letters l
          LEFT JOIN reading_sessions rs ON rs.letter_id = l.id
-         ${where}
+         WHERE l.author = $1
          GROUP BY l.id
          ORDER BY l.created_at DESC`,
-        params
+        [author]
       );
       return rows.map(formatLetterStats);
     },

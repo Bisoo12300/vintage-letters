@@ -1,4 +1,4 @@
-import { readStoredIdentity } from '@/lib/identity';
+import { readStoredIdentity, type AuthorId } from '@/lib/identity';
 
 function normalizeApiUrl(raw: string): string {
   let url = raw.trim().replace(/\/$/, '');
@@ -13,19 +13,28 @@ export { API_URL };
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit & { adminPassword?: string; readerToken?: string } = {}
+  options: RequestInit & {
+    adminPassword?: string;
+    readerToken?: string;
+    author?: AuthorId | null;
+  } = {}
 ): Promise<T> {
-  const { adminPassword, readerToken, ...fetchOptions } = options;
+  const { adminPassword, readerToken, author: authorOpt, ...fetchOptions } = options;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(fetchOptions.headers as Record<string, string>),
   };
-  const author = readStoredIdentity();
+  const author = authorOpt ?? readStoredIdentity();
   if (author) headers['x-author'] = author;
   if (adminPassword) headers['x-admin-password'] = adminPassword;
   if (readerToken) headers['x-reader-token'] = readerToken;
 
-  const url = `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  let url = `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  // ponytail: query fallback if a proxy strips custom headers
+  if (author && !url.includes('author=')) {
+    url += `${url.includes('?') ? '&' : '?'}author=${encodeURIComponent(author)}`;
+  }
+
   let res: Response;
   try {
     res = await fetch(url, { ...fetchOptions, headers });

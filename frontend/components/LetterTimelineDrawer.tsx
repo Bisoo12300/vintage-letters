@@ -9,12 +9,14 @@ import {
   type TimelineLetter,
 } from '@/lib/api';
 import { authorEmoji } from '@/lib/identity';
+import { useIdentity } from '@/components/IdentityGate';
 
 const DRAWER_W = 320;
 const CLOSED_X = -DRAWER_W;
 const SNAP_OPEN = 72;
 
 export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
+  const { identity } = useIdentity();
   const [letters, setLetters] = useState<TimelineLetter[]>([]);
   const [translateX, setTranslateX] = useState(CLOSED_X);
   const [dragging, setDragging] = useState(false);
@@ -24,10 +26,11 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
   const openProgress = (translateX - CLOSED_X) / DRAWER_W;
 
   useEffect(() => {
-    apiFetch<TimelineLetter[]>('/letters/timeline')
+    if (!identity) return;
+    apiFetch<TimelineLetter[]>('/letters/timeline', { author: identity })
       .then(setLetters)
       .catch(() => {});
-  }, []);
+  }, [identity]);
 
   const snap = useCallback((tx: number) => {
     const pulled = tx - CLOSED_X;

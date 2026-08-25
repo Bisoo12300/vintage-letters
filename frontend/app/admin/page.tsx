@@ -4,10 +4,13 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { apiFetch, formatDate, formatDuration, TEMPLATES, type LetterStats } from '@/lib/api';
 import { SiteShell } from '@/components/SiteShell';
+import { useIdentity } from '@/components/IdentityGate';
+import { authorEmoji, authorLabel } from '@/lib/identity';
 
 const emptyForm = { title: '', content: '', template: TEMPLATES[0].id as string };
 
 export default function AdminPage() {
+  const { identity } = useIdentity();
   const [letters, setLetters] = useState<LetterStats[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -16,11 +19,13 @@ export default function AdminPage() {
   const [error, setError] = useState('');
 
   const loadLetters = useCallback(async () => {
-    const data = await apiFetch<LetterStats[]>('/letters');
+    if (!identity) return;
+    const data = await apiFetch<LetterStats[]>('/letters', { author: identity });
     setLetters(data);
-  }, []);
+  }, [identity]);
 
   useEffect(() => {
+    startNew();
     loadLetters().catch(() => setError('Could not load letters'));
   }, [loadLetters]);
 
@@ -35,7 +40,7 @@ export default function AdminPage() {
   }, [selectedId, loadLetters]);
 
   async function loadStats(id: string) {
-    const data = await apiFetch<LetterStats>(`/letters/${id}/stats`);
+    const data = await apiFetch<LetterStats>(`/letters/${id}/stats`, { author: identity });
     setStats(data);
   }
 
@@ -62,6 +67,7 @@ export default function AdminPage() {
         await apiFetch(`/letters/${selectedId}`, {
           method: 'PUT',
           body: JSON.stringify(form),
+          author: identity,
         });
         await loadLetters();
         await loadStats(selectedId);
@@ -69,6 +75,7 @@ export default function AdminPage() {
         await apiFetch('/letters', {
           method: 'POST',
           body: JSON.stringify(form),
+          author: identity,
         });
         await loadLetters();
         startNew();
@@ -86,7 +93,7 @@ export default function AdminPage() {
     setLoading(true);
     setError('');
     try {
-      await apiFetch(`/letters/${selectedId}`, { method: 'DELETE' });
+      await apiFetch(`/letters/${selectedId}`, { method: 'DELETE', author: identity });
       startNew();
       await loadLetters();
     } catch (err) {
@@ -102,7 +109,11 @@ export default function AdminPage() {
         <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-semibold text-mora-brown-800">My letters</h1>
-            <p className="font-body mt-1 text-mora-brown-500">Create, edit & manage letters you wrote</p>
+            <p className="font-body mt-1 text-mora-brown-500">
+              {identity
+                ? `${authorEmoji(identity)} ${authorLabel(identity)} — only your letters`
+                : 'Create, edit & manage letters you wrote'}
+            </p>
           </div>
           <button type="button" onClick={startNew} className="mora-btn-primary text-sm">
             + New Letter

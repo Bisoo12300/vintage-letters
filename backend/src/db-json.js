@@ -103,9 +103,8 @@ export function createJsonDb() {
     },
 
     async allLettersWithStats(author) {
-      const letters = author
-        ? store.letters.filter((l) => withAuthor(l).author === author)
-        : store.letters;
+      if (!author) return [];
+      const letters = store.letters.filter((l) => withAuthor(l).author === author);
       return Promise.all(letters.map((l) => this.letterWithStats(l.id)));
     },
   };

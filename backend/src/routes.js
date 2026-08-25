@@ -1,39 +1,31 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './db.js';
-import { requireAuthor } from './auth.js';
+import { AUTHORS, assertOwnLetter, requireAuthor } from './auth.js';
 
 const router = Router();
 
 function frontendBase() {
-  let url = (process.env.FRONTEND_URL || 'http://localhost:3000').trim().replace(/\/$/, '');
+  let url = (process.env.FRONTEND_URL || 'http://localhost:3000').trim().split(',')[0].trim().replace(/\/$/, '');
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
   return url;
-}
-
-async function ownLetterOr403(req, res) {
-  const letter = await getDb().getLetter(req.params.id);
-  if (!letter) {
-    res.status(404).json({ error: 'Letter not found' });
-    return null;
-  }
-  if (letter.author !== req.author) {
-    res.status(403).json({ error: 'You can only edit your own letters' });
-    return null;
-  }
-  return letter;
 }
 
 router.get('/health', async (_req, res) => {
   try {
     const db = getDb();
     await db.ping();
-    res.json({ ok: true, db: db.kind, auth: 'author' });
+    res.json({ ok: true, db: db.kind, auth: 'author', roles: AUTHORS });
   } catch (err) {
     res.status(503).json({ ok: false, db: getDb().kind, error: err.message });
   }
 });
 
+router.get('/me', requireAuthor, (req, res) => {
+  res.json({ author: req.author });
+});
+
+/** Create — tagged with current role */
 router.post('/letters', requireAuthor, async (req, res) => {
   const db = getDb();
   const { title, content, template = 'daisy-paper', reply_to = null } = req.body;
@@ -68,10 +60,12 @@ router.post('/letters', requireAuthor, async (req, res) => {
   });
 });
 
+/** My letters — only current role */
 router.get('/letters', requireAuthor, async (req, res) => {
   res.json(await getDb().allLettersWithStats(req.author));
 });
 
+/** Shared timeline — both roles see all */
 router.get('/letters/timeline', requireAuthor, async (_req, res) => {
   const all = await getDb().getLetters();
   const byId = new Map(all.map((l) => [l.id, l]));
@@ -88,6 +82,7 @@ router.get('/letters/timeline', requireAuthor, async (_req, res) => {
   res.json(letters);
 });
 
+/** Read one — public (QR / shared link) */
 router.get('/letters/:id', async (req, res) => {
   const letter = await getDb().getLetter(req.params.id);
   if (!letter) return res.status(404).json({ error: 'Letter not found' });
@@ -100,7 +95,9 @@ router.get('/letters/:id', async (req, res) => {
 });
 
 router.put('/letters/:id', requireAuthor, async (req, res) => {
-  if (!(await ownLetterOr403(req, res))) return;
+  const check = await assertOwnLetter(getDb(), req.params.id, req.author);
+  if (check.error) return res.status(check.status).json({ error: check.error });
+
   const { title, content, template = 'daisy-paper' } = req.body;
   if (!title?.trim() || !content?.trim()) {
     return res.status(400).json({ error: 'Title and content required' });
@@ -116,14 +113,18 @@ router.put('/letters/:id', requireAuthor, async (req, res) => {
 });
 
 router.delete('/letters/:id', requireAuthor, async (req, res) => {
-  if (!(await ownLetterOr403(req, res))) return;
+  const check = await assertOwnLetter(getDb(), req.params.id, req.author);
+  if (check.error) return res.status(check.status).json({ error: check.error });
+
   const deleted = await getDb().deleteLetter(req.params.id);
   if (!deleted) return res.status(404).json({ error: 'Letter not found' });
   res.json({ ok: true });
 });
 
 router.get('/letters/:id/stats', requireAuthor, async (req, res) => {
-  if (!(await ownLetterOr403(req, res))) return;
+  const check = await assertOwnLetter(getDb(), req.params.id, req.author);
+  if (check.error) return res.status(check.status).json({ error: check.error });
+
   const db = getDb();
   const letter = await db.letterWithStats(req.params.id);
   if (!letter) return res.status(404).json({ error: 'Letter not found' });
@@ -181,6 +182,7 @@ router.post('/letters/:id/read-end', async (req, res) => {
   res.json({ ok: true, endedAt, durationSeconds: duration });
 });
 
+/** Shared archive — any role can read all letters */
 router.get('/archive', requireAuthor, async (_req, res) => {
   const letters = (await getDb().getLetters()).map(({ id, title, template, author, created_at }) => ({
     id,
