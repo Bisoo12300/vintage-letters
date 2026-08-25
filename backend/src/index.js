@@ -15,7 +15,12 @@ for (const key of ['DATABASE_URL', 'FRONTEND_URL']) {
   else if (/^["']/.test(val)) console.warn(`[env] ${key} has stray quotes — remove " from Railway/Vercel`);
 }
 
-app.use(cors({ origin: frontendOrigin }));
+app.use(
+  cors({
+    origin: frontendOrigin,
+    allowedHeaders: ['Content-Type', 'x-author', 'x-admin-password', 'x-reader-token'],
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 app.use('/api', routes);
 

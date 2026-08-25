@@ -28,7 +28,7 @@ router.get('/health', async (_req, res) => {
   try {
     const db = getDb();
     await db.ping();
-    res.json({ ok: true, db: db.kind });
+    res.json({ ok: true, db: db.kind, auth: 'author' });
   } catch (err) {
     res.status(503).json({ ok: false, db: getDb().kind, error: err.message });
   }

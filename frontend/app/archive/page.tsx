@@ -3,18 +3,27 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SiteShell } from '@/components/SiteShell';
+import { useIdentity } from '@/components/IdentityGate';
 import { apiFetch, formatDate, type ArchiveLetter } from '@/lib/api';
 import { authorEmoji, authorLabel } from '@/lib/identity';
 
 export default function ArchivePage() {
+  const { identity } = useIdentity();
   const [letters, setLetters] = useState<ArchiveLetter[]>([]);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!identity) return;
+    setLoading(true);
+    setError('');
     apiFetch<ArchiveLetter[]>('/archive')
       .then(setLetters)
-      .catch(() => setError('Could not load the archive'));
-  }, []);
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Could not load the archive')
+      )
+      .finally(() => setLoading(false));
+  }, [identity]);
 
   return (
     <SiteShell>
@@ -27,9 +36,12 @@ export default function ArchivePage() {
           </p>
         </header>
 
+        {loading && (
+          <p className="font-body text-center text-mora-brown-400">Loading archive…</p>
+        )}
         {error && <p className="font-body mb-4 text-center text-sm text-red-700">{error}</p>}
 
-        {letters.length === 0 ? (
+        {!loading && !error && letters.length === 0 ? (
           <div className="mora-card text-center">
             <p className="font-body text-mora-brown-500">No letters yet. Write the first one.</p>
           </div>
