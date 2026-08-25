@@ -8,6 +8,7 @@ import {
   writeStoredIdentity,
   type AuthorId,
 } from '@/lib/identity';
+import { BookLoader } from '@/components/BookLoader';
 
 const IdentityContext = createContext<{
   identity: AuthorId | null;
@@ -48,7 +49,13 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
     [identity]
   );
 
-  if (!ready) return null;
+  if (!ready) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-mora-cream">
+        <BookLoader />
+      </div>
+    );
+  }
 
   return (
     <IdentityContext.Provider value={value}>

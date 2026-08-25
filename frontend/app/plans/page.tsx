@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { SiteShell } from '@/components/SiteShell';
 import { PlanModal } from '@/components/plans/PlanModal';
+import { BookLoader } from '@/components/BookLoader';
 import { useIdentity } from '@/components/IdentityGate';
 import { apiFetch, formatDate, type DatePlan } from '@/lib/api';
 import { authorEmoji, authorLabel } from '@/lib/identity';
@@ -370,7 +371,9 @@ export default function PlansPage() {
             </p>
           )}
           {loading && (
-            <p className="font-body px-4 py-8 text-center text-mora-brown-400">Loading…</p>
+            <div className="flex justify-center py-16">
+              <BookLoader label="Loading plans…" />
+            </div>
           )}
 
           {!loading && (

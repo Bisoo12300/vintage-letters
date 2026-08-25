@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SiteShell } from '@/components/SiteShell';
+import { BookLoader } from '@/components/BookLoader';
 import { useIdentity } from '@/components/IdentityGate';
 import { apiFetch, formatDate, type InboxLetter } from '@/lib/api';
 import { authorEmoji, authorLabel } from '@/lib/identity';
@@ -49,7 +50,9 @@ export default function InboxPage() {
         </header>
 
         {loading && (
-          <p className="font-body text-center text-mora-brown-400">Loading inbox…</p>
+          <div className="flex justify-center py-16">
+            <BookLoader label="Loading inbox…" />
+          </div>
         )}
         {error && <p className="font-body mb-4 text-center text-sm text-red-700">{error}</p>}
 

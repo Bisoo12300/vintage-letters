@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { apiFetch, TEMPLATES, type Letter, type TemplateId } from '@/lib/api';
 import { MoraHero, SiteShell } from '@/components/SiteShell';
+import { BookLoader } from '@/components/BookLoader';
 import { useIdentity } from '@/components/IdentityGate';
 import { authorEmoji, authorLabel } from '@/lib/identity';
 
@@ -177,7 +178,7 @@ export default function HomePage() {
       />
 
       <section className="mx-auto max-w-3xl px-5 pb-20 sm:px-8">
-        <Suspense fallback={<p className="font-body text-mora-brown-400">Loading…</p>}>
+        <Suspense fallback={<BookLoader label="Loading…" />}>
           <ComposeForm />
         </Suspense>
       </section>

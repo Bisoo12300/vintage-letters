@@ -6,6 +6,7 @@ import { EnvelopeReveal } from '@/components/EnvelopeReveal';
 import { LetterPaper } from '@/components/LetterPaper';
 import { LetterTimelineDrawer } from '@/components/LetterTimelineDrawer';
 import { useReadingTracker } from '@/components/ReadingTracker';
+import { BookLoader } from '@/components/BookLoader';
 import { apiFetch, type Letter } from '@/lib/api';
 
 export function LetterView({ id }: { id: string }) {
@@ -28,7 +29,7 @@ export function LetterView({ id }: { id: string }) {
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-mora-cream">
-        <p className="font-display animate-pulse text-xl text-mora-brown-400">Opening letter...</p>
+        <BookLoader label="Opening letter…" />
       </main>
     );
   }
