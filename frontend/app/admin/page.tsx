@@ -231,6 +231,22 @@ export default function AdminPage() {
                     <p className="text-mora-brown-500">Total Time</p>
                   </div>
                 </div>
+                {stats.readers && stats.readers.length > 0 && (
+                  <div className="mb-4">
+                    <p className="mb-2 font-body text-xs text-mora-brown-500">Read by</p>
+                    <ul className="space-y-2">
+                      {stats.readers.map((r) => (
+                        <li
+                          key={r.reader}
+                          className="rounded-xl border border-mora-beige-200 bg-mora-beige-50 px-4 py-2 font-body text-sm text-mora-brown-600"
+                        >
+                          {authorEmoji(r.reader)} {authorLabel(r.reader)} · last{' '}
+                          {formatDate(r.last_read_at)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {stats.sessions && stats.sessions.length > 0 && (
                   <ul className="max-h-40 space-y-2 overflow-y-auto">
                     {stats.sessions.map((s) => (
@@ -238,6 +254,7 @@ export default function AdminPage() {
                         key={s.id}
                         className="rounded-xl border border-mora-beige-200 bg-mora-beige-50 px-4 py-2 font-body text-sm text-mora-brown-600"
                       >
+                        {s.reader ? `${authorEmoji(s.reader)} ${authorLabel(s.reader)} · ` : ''}
                         {formatDate(s.started_at)} · {formatDuration(s.duration_seconds)}
                       </li>
                     ))}

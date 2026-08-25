@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { API_URL, apiFetch } from '@/lib/api';
+import { readStoredIdentity } from '@/lib/identity';
 
 export function useReadingTracker(letterId: string) {
   const sessionIdRef = useRef<string | null>(null);
@@ -11,12 +12,14 @@ export function useReadingTracker(letterId: string) {
   useEffect(() => {
     if (!letterId) return;
     let active = true;
+    const author = readStoredIdentity();
+    if (!author) return;
 
     async function startSession() {
       const task = (async () => {
         const data = await apiFetch<{ sessionId: string }>(
           `/letters/${letterId}/read-start`,
-          { method: 'POST' }
+          { method: 'POST', author }
         );
         if (active) {
           sessionIdRef.current = data.sessionId;
@@ -45,11 +48,12 @@ export function useReadingTracker(letterId: string) {
         Math.round((Date.now() - startTimeRef.current) / 1000)
       );
       const body = JSON.stringify({ sessionId, durationSeconds });
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (author) headers['x-author'] = author;
 
-      // ponytail: sendBeacon fails cross-origin with JSON (no CORS preflight) — use fetch+keepalive
-      fetch(`${API_URL}/letters/${letterId}/read-end`, {
+      fetch(`${API_URL}/letters/${letterId}/read-end?author=${author}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body,
         keepalive: true,
       }).catch(() => {});

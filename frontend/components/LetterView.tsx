@@ -52,6 +52,14 @@ export function LetterView({ id }: { id: string }) {
   return (
     <>
       <LetterTimelineDrawer currentId={id} />
+      <div className="fixed bottom-6 right-4 z-40 flex flex-col items-stretch gap-2 sm:right-6">
+        <Link href="/" className="mora-btn text-sm shadow-md">
+          Back to home
+        </Link>
+        <Link href={`/?reply_to=${letter.id}`} className="mora-btn-primary text-sm shadow-md">
+          Reply to this letter
+        </Link>
+      </div>
       <main className="flex min-h-screen items-center justify-center bg-mora-cream px-4 py-10 sm:px-6">
         <div className="animate-fade-in-up w-full max-w-2xl">
           <LetterPaper
@@ -62,11 +70,6 @@ export function LetterView({ id }: { id: string }) {
             replyToTitle={letter.reply_to_title}
             replyToId={letter.reply_to}
           />
-          <div className="mt-6 flex justify-center">
-            <Link href={`/?reply_to=${letter.id}`} className="mora-btn-primary">
-              Reply to this letter
-            </Link>
-          </div>
         </div>
       </main>
     </>

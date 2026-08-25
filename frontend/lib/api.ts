@@ -64,6 +64,12 @@ export interface LetterStats extends Letter {
   total_read_seconds: number;
   last_read_at: string | null;
   sessions?: ReadingSession[];
+  readers?: LetterReader[];
+}
+
+export interface LetterReader {
+  reader: string;
+  last_read_at: string;
 }
 
 export interface ReadingSession {
@@ -72,15 +78,30 @@ export interface ReadingSession {
   ended_at: string;
   duration_seconds: number;
   user_agent: string | null;
+  reader?: string | null;
 }
 
-export interface ArchiveLetter {
+export interface InboxLetter {
   id: string;
   title: string;
   template: string;
   author: string;
   created_at: string;
+  unread: boolean;
 }
+
+export interface DatePlan {
+  id: string;
+  proposed_by: string;
+  starts_at: string;
+  note: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: string;
+  responded_at: string | null;
+}
+
+/** @deprecated use InboxLetter */
+export type ArchiveLetter = InboxLetter;
 
 export interface TimelineLetter {
   id: string;

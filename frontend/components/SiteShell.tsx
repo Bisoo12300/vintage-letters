@@ -1,13 +1,16 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useIdentity } from '@/components/IdentityGate';
 import { authorEmoji, authorLabel } from '@/lib/identity';
+import { apiFetch } from '@/lib/api';
 
 const NAV = [
   { href: '/', label: 'Letterbook' },
   { href: '/admin', label: 'My letters' },
-  { href: '/archive', label: 'Archive' },
+  { href: '/inbox', label: 'Inbox' },
+  { href: '/plans', label: 'Plans' },
 ];
 
 export function SiteShell({
@@ -18,6 +21,28 @@ export function SiteShell({
   hideNav?: boolean;
 }) {
   const { identity, switchIdentity } = useIdentity();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!identity) {
+      setUnread(0);
+      return;
+    }
+    let active = true;
+    const load = () => {
+      apiFetch<{ count: number }>('/inbox/unread-count', { author: identity })
+        .then((data) => {
+          if (active) setUnread(data.count);
+        })
+        .catch(() => {});
+    };
+    load();
+    window.addEventListener('focus', load);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', load);
+    };
+  }, [identity]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -37,9 +62,14 @@ export function SiteShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-full px-3 py-2 font-body text-sm text-mora-brown-600 transition hover:bg-mora-beige-100 hover:text-mora-brown-800 sm:px-4"
+                  className="relative rounded-full px-3 py-2 font-body text-sm text-mora-brown-600 transition hover:bg-mora-beige-100 hover:text-mora-brown-800 sm:px-4"
                 >
                   {item.label}
+                  {item.href === '/inbox' && unread > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 font-body text-[10px] font-bold text-white">
+                      {unread > 9 ? '9+' : unread}
+                    </span>
+                  )}
                 </Link>
               ))}
               {identity && (

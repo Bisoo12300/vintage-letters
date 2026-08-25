@@ -71,7 +71,7 @@ export async function createPgDb(connectionString) {
 
     async getSessions(letterId) {
       const { rows } = await pool.query(
-        `SELECT id, letter_id, started_at, ended_at, duration_seconds, user_agent
+        `SELECT id, letter_id, started_at, ended_at, duration_seconds, user_agent, reader
          FROM reading_sessions WHERE letter_id = $1`,
         [letterId]
       );
@@ -80,8 +80,8 @@ export async function createPgDb(connectionString) {
 
     async insertSession(session) {
       await pool.query(
-        `INSERT INTO reading_sessions (id, letter_id, started_at, ended_at, duration_seconds, user_agent)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
+        `INSERT INTO reading_sessions (id, letter_id, started_at, ended_at, duration_seconds, user_agent, reader)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
           session.id,
           session.letter_id,
@@ -89,6 +89,7 @@ export async function createPgDb(connectionString) {
           session.ended_at,
           session.duration_seconds,
           session.user_agent,
+          session.reader || null,
         ]
       );
       return session;
@@ -107,7 +108,7 @@ export async function createPgDb(connectionString) {
 
     async getSession(id) {
       const { rows } = await pool.query(
-        `SELECT id, letter_id, started_at, ended_at, duration_seconds, user_agent
+        `SELECT id, letter_id, started_at, ended_at, duration_seconds, user_agent, reader
          FROM reading_sessions WHERE id = $1`,
         [id]
       );
@@ -149,6 +150,109 @@ export async function createPgDb(connectionString) {
       );
       return rows.map(formatLetterStats);
     },
+
+    /** Letters from the other role — unread = no reading_session by this reader */
+    async getInbox(reader) {
+      const { rows } = await pool.query(
+        `SELECT
+           l.id, l.title, l.template, l.author, l.created_at,
+           NOT EXISTS (
+             SELECT 1 FROM reading_sessions rs
+             WHERE rs.letter_id = l.id AND rs.reader = $1
+           ) AS unread
+         FROM letters l
+         WHERE l.author <> $1
+         ORDER BY l.created_at DESC`,
+        [reader]
+      );
+      return rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        template: row.template,
+        author: row.author || 'moon',
+        created_at: toIso(row.created_at),
+        unread: Boolean(row.unread),
+      }));
+    },
+
+    async countUnreadInbox(reader) {
+      const { rows } = await pool.query(
+        `SELECT COUNT(*)::int AS n
+         FROM letters l
+         WHERE l.author <> $1
+           AND NOT EXISTS (
+             SELECT 1 FROM reading_sessions rs
+             WHERE rs.letter_id = l.id AND rs.reader = $1
+           )`,
+        [reader]
+      );
+      return rows[0]?.n ?? 0;
+    },
+
+    /** Distinct roles who opened this letter */
+    async getReaders(letterId) {
+      const { rows } = await pool.query(
+        `SELECT reader, MAX(COALESCE(ended_at, started_at)) AS last_read_at
+         FROM reading_sessions
+         WHERE letter_id = $1 AND reader IS NOT NULL
+         GROUP BY reader
+         ORDER BY last_read_at DESC`,
+        [letterId]
+      );
+      return rows.map((row) => ({
+        reader: row.reader,
+        last_read_at: toIso(row.last_read_at),
+      }));
+    },
+
+    async getPlans() {
+      const { rows } = await pool.query(
+        `SELECT id, proposed_by, starts_at, note, status, created_at, responded_at
+         FROM date_plans
+         ORDER BY starts_at ASC`
+      );
+      return rows.map(formatPlan);
+    },
+
+    async getPlan(id) {
+      const { rows } = await pool.query(
+        `SELECT id, proposed_by, starts_at, note, status, created_at, responded_at
+         FROM date_plans WHERE id = $1`,
+        [id]
+      );
+      return rows[0] ? formatPlan(rows[0]) : null;
+    },
+
+    async insertPlan(plan) {
+      await pool.query(
+        `INSERT INTO date_plans (id, proposed_by, starts_at, note, status, created_at, responded_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          plan.id,
+          plan.proposed_by,
+          plan.starts_at,
+          plan.note,
+          plan.status,
+          plan.created_at,
+          plan.responded_at || null,
+        ]
+      );
+      return plan;
+    },
+
+    async updatePlanStatus(id, status, respondedAt) {
+      const { rowCount } = await pool.query(
+        `UPDATE date_plans SET status = $1, responded_at = $2 WHERE id = $3`,
+        [status, respondedAt, id]
+      );
+      if (!rowCount) return null;
+      return this.getPlan(id);
+    },
+
+    async deletePlan(id) {
+      const { rowCount } = await pool.query('DELETE FROM date_plans WHERE id = $1', [id]);
+      return rowCount > 0;
+    },
   };
 }
 
@@ -172,6 +276,7 @@ function formatSession(row) {
     ended_at: row.ended_at ? toIso(row.ended_at) : null,
     duration_seconds: row.duration_seconds,
     user_agent: row.user_agent,
+    reader: row.reader || null,
   };
 }
 
@@ -181,6 +286,18 @@ function formatLetterStats(row) {
     read_count: row.read_count ?? 0,
     total_read_seconds: row.total_read_seconds ?? 0,
     last_read_at: row.last_read_at ? toIso(row.last_read_at) : null,
+  };
+}
+
+function formatPlan(row) {
+  return {
+    id: row.id,
+    proposed_by: row.proposed_by,
+    starts_at: toIso(row.starts_at),
+    note: row.note || '',
+    status: row.status,
+    created_at: toIso(row.created_at),
+    responded_at: row.responded_at ? toIso(row.responded_at) : null,
   };
 }
 

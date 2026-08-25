@@ -132,11 +132,12 @@ router.get('/letters/:id/stats', requireAuthor, async (req, res) => {
   const sessions = (await db.getSessions(req.params.id))
     .filter((s) => s.ended_at)
     .sort((a, b) => b.started_at.localeCompare(a.started_at));
+  const readers = await db.getReaders(req.params.id);
 
-  res.json({ ...letter, sessions });
+  res.json({ ...letter, sessions, readers });
 });
 
-router.post('/letters/:id/read-start', async (req, res) => {
+router.post('/letters/:id/read-start', requireAuthor, async (req, res) => {
   const db = getDb();
   const letter = await db.getLetter(req.params.id);
   if (!letter) return res.status(404).json({ error: 'Letter not found' });
@@ -150,9 +151,10 @@ router.post('/letters/:id/read-start', async (req, res) => {
     ended_at: null,
     duration_seconds: null,
     user_agent: req.headers['user-agent'] || null,
+    reader: req.author,
   });
 
-  res.json({ sessionId, startedAt });
+  res.json({ sessionId, startedAt, reader: req.author });
 });
 
 router.post('/letters/:id/read-end', async (req, res) => {
@@ -182,16 +184,78 @@ router.post('/letters/:id/read-end', async (req, res) => {
   res.json({ ok: true, endedAt, durationSeconds: duration });
 });
 
-/** Shared archive — any role can read all letters */
-router.get('/archive', requireAuthor, async (_req, res) => {
-  const letters = (await getDb().getLetters()).map(({ id, title, template, author, created_at }) => ({
-    id,
-    title,
-    template,
-    author,
-    created_at,
-  }));
-  res.json(letters);
+/** Inbox — letters from the other role (unread via reading_sessions.reader) */
+router.get('/inbox', requireAuthor, async (req, res) => {
+  res.json(await getDb().getInbox(req.author));
+});
+
+router.get('/inbox/unread-count', requireAuthor, async (req, res) => {
+  res.json({ count: await getDb().countUnreadInbox(req.author) });
+});
+
+/** @deprecated use /inbox */
+router.get('/archive', requireAuthor, async (req, res) => {
+  res.json(await getDb().getInbox(req.author));
+});
+
+/** Shared date plans — propose / accept / decline */
+router.get('/plans', requireAuthor, async (_req, res) => {
+  res.json(await getDb().getPlans());
+});
+
+router.post('/plans', requireAuthor, async (req, res) => {
+  const { startsAt, note = '' } = req.body || {};
+  if (!startsAt) return res.status(400).json({ error: 'startsAt required' });
+  const when = new Date(startsAt);
+  if (Number.isNaN(when.getTime())) {
+    return res.status(400).json({ error: 'Invalid startsAt' });
+  }
+
+  const plan = {
+    id: uuidv4(),
+    proposed_by: req.author,
+    starts_at: when.toISOString(),
+    note: String(note || '').trim(),
+    status: 'pending',
+    created_at: new Date().toISOString(),
+    responded_at: null,
+  };
+  await getDb().insertPlan(plan);
+  res.status(201).json(plan);
+});
+
+router.post('/plans/:id/accept', requireAuthor, async (req, res) => {
+  const db = getDb();
+  const plan = await db.getPlan(req.params.id);
+  if (!plan) return res.status(404).json({ error: 'Plan not found' });
+  if (plan.status !== 'pending') {
+    return res.status(400).json({ error: 'Plan is not pending' });
+  }
+  if (plan.proposed_by === req.author) {
+    return res.status(403).json({ error: 'Cannot accept your own plan' });
+  }
+  const updated = await db.updatePlanStatus(plan.id, 'accepted', new Date().toISOString());
+  res.json(updated);
+});
+
+router.post('/plans/:id/decline', requireAuthor, async (req, res) => {
+  const db = getDb();
+  const plan = await db.getPlan(req.params.id);
+  if (!plan) return res.status(404).json({ error: 'Plan not found' });
+  if (plan.status !== 'pending') {
+    return res.status(400).json({ error: 'Plan is not pending' });
+  }
+  if (plan.proposed_by === req.author) {
+    return res.status(403).json({ error: 'Cannot decline your own plan' });
+  }
+  const updated = await db.updatePlanStatus(plan.id, 'declined', new Date().toISOString());
+  res.json(updated);
+});
+
+router.delete('/plans/:id', requireAuthor, async (req, res) => {
+  const deleted = await getDb().deletePlan(req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'Plan not found' });
+  res.json({ ok: true });
 });
 
 export default router;

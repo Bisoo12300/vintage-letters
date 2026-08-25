@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataPath = path.join(__dirname, '..', 'data', 'store.json');
-const defaultStore = { letters: [], reading_sessions: [] };
+const defaultStore = { letters: [], reading_sessions: [], date_plans: [] };
 
 function load() {
   fs.mkdirSync(path.dirname(dataPath), { recursive: true });
@@ -12,7 +12,10 @@ function load() {
     fs.writeFileSync(dataPath, JSON.stringify(defaultStore, null, 2));
     return structuredClone(defaultStore);
   }
-  return JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+  const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+  if (!data.reading_sessions) data.reading_sessions = [];
+  if (!data.date_plans) data.date_plans = [];
+  return data;
 }
 
 function withAuthor(letter) {
@@ -106,6 +109,77 @@ export function createJsonDb() {
       if (!author) return [];
       const letters = store.letters.filter((l) => withAuthor(l).author === author);
       return Promise.all(letters.map((l) => this.letterWithStats(l.id)));
+    },
+
+    async getInbox(reader) {
+      return store.letters
+        .filter((l) => withAuthor(l).author !== reader)
+        .map((l) => {
+          const letter = withAuthor(l);
+          const unread = !store.reading_sessions.some(
+            (s) => s.letter_id === letter.id && s.reader === reader
+          );
+          return {
+            id: letter.id,
+            title: letter.title,
+            template: letter.template,
+            author: letter.author,
+            created_at: letter.created_at,
+            unread,
+          };
+        })
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+    },
+
+    async countUnreadInbox(reader) {
+      const inbox = await this.getInbox(reader);
+      return inbox.filter((l) => l.unread).length;
+    },
+
+    async getReaders(letterId) {
+      const byReader = new Map();
+      for (const s of store.reading_sessions) {
+        if (s.letter_id !== letterId || !s.reader) continue;
+        const at = s.ended_at || s.started_at;
+        const prev = byReader.get(s.reader);
+        if (!prev || at > prev) byReader.set(s.reader, at);
+      }
+      return [...byReader.entries()]
+        .map(([reader, last_read_at]) => ({ reader, last_read_at }))
+        .sort((a, b) => b.last_read_at.localeCompare(a.last_read_at));
+    },
+
+    async getPlans() {
+      return [...store.date_plans].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    },
+
+    async getPlan(id) {
+      return store.date_plans.find((p) => p.id === id) || null;
+    },
+
+    async insertPlan(plan) {
+      store.date_plans.push(plan);
+      save(store);
+      return plan;
+    },
+
+    async updatePlanStatus(id, status, respondedAt) {
+      const idx = store.date_plans.findIndex((p) => p.id === id);
+      if (idx === -1) return null;
+      store.date_plans[idx] = {
+        ...store.date_plans[idx],
+        status,
+        responded_at: respondedAt,
+      };
+      save(store);
+      return store.date_plans[idx];
+    },
+
+    async deletePlan(id) {
+      const before = store.date_plans.length;
+      store.date_plans = store.date_plans.filter((p) => p.id !== id);
+      save(store);
+      return store.date_plans.length < before;
     },
   };
 }
