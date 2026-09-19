@@ -10,6 +10,7 @@
   body {
     @apply min-h-screen font-body text-mora-brown-800 antialiased;
     background-color: #faf8f4;
+    -webkit-tap-highlight-color: transparent;
   }
 
   ::selection {
@@ -19,9 +20,9 @@
 
 @layer components {
   .mora-input {
-    @apply w-full rounded-2xl border border-mora-beige-200 bg-white px-5 py-3.5
+    @apply w-full min-h-11 rounded-2xl border border-mora-beige-200 bg-white px-5 py-3.5
       font-body text-base text-mora-brown-800 placeholder:text-mora-brown-400
-      shadow-soft transition focus:border-mora-brown-400 focus:outline-none focus:ring-2 focus:ring-mora-brown-400/20;
+      shadow-soft transition duration-150 focus:border-mora-brown-400 focus:outline-none focus:ring-2 focus:ring-mora-brown-400/20;
   }
 
   .mora-textarea {
@@ -29,10 +30,10 @@
   }
 
   .mora-btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-mora-beige-200
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-mora-beige-200
       bg-white px-6 py-3 font-body text-sm font-medium text-mora-brown-700
-      shadow-soft transition hover:border-mora-brown-400 hover:bg-mora-beige-50 hover:text-mora-brown-800
-      active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+      shadow-soft transition duration-150 ease-out hover:border-mora-brown-400 hover:bg-mora-beige-50 hover:text-mora-brown-800
+      active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50;
   }
 
   .mora-btn-primary {
@@ -90,6 +91,32 @@
 
 .animate-fade-out-down {
   animation: fadeOutDown 0.52s ease-in forwards;
+}
+
+@keyframes sheetSlideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-sheet-up {
+  animation: sheetSlideUp 0.38s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+.animate-overlay-in {
+  animation: overlayFadeIn 0.25s ease-out forwards;
 }
 
 @keyframes envelopeSealBreak {
