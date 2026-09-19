@@ -318,7 +318,7 @@ export default function PlansPage() {
             <p className="mb-2 font-medium text-mora-brown-500">Calendars</p>
             <label className="flex items-center gap-2">
               <input type="checkbox" checked readOnly className="accent-mora-brown-600" />
-              Shared (Moon + Fox)
+              Shared (Moon + Sun)
             </label>
           </div>
           <button

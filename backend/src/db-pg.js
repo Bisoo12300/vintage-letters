@@ -253,6 +253,34 @@ export async function createPgDb(connectionString) {
       const { rowCount } = await pool.query('DELETE FROM date_plans WHERE id = $1', [id]);
       return rowCount > 0;
     },
+
+    async insertPushSubscription(sub) {
+      await pool.query(
+        `INSERT INTO push_subscriptions (id, author, endpoint, p256dh, auth, user_agent, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (endpoint) DO UPDATE SET
+           author = EXCLUDED.author,
+           p256dh = EXCLUDED.p256dh,
+           auth = EXCLUDED.auth,
+           user_agent = EXCLUDED.user_agent`,
+        [sub.id, sub.author, sub.endpoint, sub.p256dh, sub.auth, sub.user_agent || null, sub.created_at]
+      );
+      return sub;
+    },
+
+    async getPushSubscriptionsForAuthor(author) {
+      const { rows } = await pool.query(
+        `SELECT id, author, endpoint, p256dh, auth, user_agent, created_at
+         FROM push_subscriptions WHERE author = $1`,
+        [author]
+      );
+      return rows.map(formatPushSubscription);
+    },
+
+    async deletePushSubscriptionByEndpoint(endpoint) {
+      const { rowCount } = await pool.query('DELETE FROM push_subscriptions WHERE endpoint = $1', [endpoint]);
+      return rowCount > 0;
+    },
   };
 }
 
@@ -298,6 +326,18 @@ function formatPlan(row) {
     status: row.status,
     created_at: toIso(row.created_at),
     responded_at: row.responded_at ? toIso(row.responded_at) : null,
+  };
+}
+
+function formatPushSubscription(row) {
+  return {
+    id: row.id,
+    author: row.author,
+    endpoint: row.endpoint,
+    p256dh: row.p256dh,
+    auth: row.auth,
+    user_agent: row.user_agent || null,
+    created_at: toIso(row.created_at),
   };
 }
 

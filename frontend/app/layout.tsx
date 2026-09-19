@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Lora, Nunito } from 'next/font/google';
 import { IdentityGate } from '@/components/IdentityGate';
 import './globals.css';
@@ -19,6 +19,10 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: 'Clair de Lune',
   description: 'Write letters on aged paper, share through QR codes',
+};
+
+export const viewport: Viewport = {
+  themeColor: '#6B5A4A',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

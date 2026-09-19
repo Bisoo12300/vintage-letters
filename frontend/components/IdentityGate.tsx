@@ -9,6 +9,7 @@ import {
   type AuthorId,
 } from '@/lib/identity';
 import { BookLoader } from '@/components/BookLoader';
+import { ensurePushSubscription } from '@/lib/push';
 
 const IdentityContext = createContext<{
   identity: AuthorId | null;
@@ -30,8 +31,10 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
   const [picked, setPicked] = useState<AuthorId>('moon');
 
   useEffect(() => {
-    setIdentityState(readStoredIdentity());
+    const stored = readStoredIdentity();
+    setIdentityState(stored);
     setReady(true);
+    if (stored) ensurePushSubscription(stored);
   }, []);
 
   const value = useMemo(
@@ -40,6 +43,7 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
       setIdentity: (id: AuthorId) => {
         writeStoredIdentity(id);
         setIdentityState(id);
+        ensurePushSubscription(id);
       },
       switchIdentity: () => {
         clearStoredIdentity();
@@ -71,7 +75,7 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
             <p className="font-body text-sm tracking-widest text-mora-brown-500 uppercase">Clair de Lune</p>
             <h1 className="font-display mt-2 text-3xl font-semibold text-mora-brown-800">Who are you?</h1>
             <p className="font-body mt-3 text-mora-brown-500">
-              Choose Moon or Fox. You can switch anytime from the header.
+              Choose Moon or Sun. You can switch anytime from the header.
             </p>
 
             <fieldset className="mt-8 space-y-3 text-left">

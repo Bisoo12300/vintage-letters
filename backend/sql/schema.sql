@@ -37,3 +37,22 @@ CREATE TABLE IF NOT EXISTS date_plans (
 );
 
 CREATE INDEX IF NOT EXISTS idx_plans_starts ON date_plans(starts_at);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id TEXT PRIMARY KEY,
+  author TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  user_agent TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subs_endpoint ON push_subscriptions(endpoint);
+CREATE INDEX IF NOT EXISTS idx_push_subs_author ON push_subscriptions(author);
+
+-- Role rename: fox -> sun (idempotent, no-op once migrated)
+UPDATE letters SET author = 'sun' WHERE author = 'fox';
+UPDATE reading_sessions SET reader = 'sun' WHERE reader = 'fox';
+UPDATE date_plans SET proposed_by = 'sun' WHERE proposed_by = 'fox';
+UPDATE push_subscriptions SET author = 'sun' WHERE author = 'fox';

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataPath = path.join(__dirname, '..', 'data', 'store.json');
-const defaultStore = { letters: [], reading_sessions: [], date_plans: [] };
+const defaultStore = { letters: [], reading_sessions: [], date_plans: [], push_subscriptions: [] };
 
 function load() {
   fs.mkdirSync(path.dirname(dataPath), { recursive: true });
@@ -15,6 +15,7 @@ function load() {
   const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
   if (!data.reading_sessions) data.reading_sessions = [];
   if (!data.date_plans) data.date_plans = [];
+  if (!data.push_subscriptions) data.push_subscriptions = [];
   return data;
 }
 
@@ -180,6 +181,28 @@ export function createJsonDb() {
       store.date_plans = store.date_plans.filter((p) => p.id !== id);
       save(store);
       return store.date_plans.length < before;
+    },
+
+    async insertPushSubscription(sub) {
+      const idx = store.push_subscriptions.findIndex((s) => s.endpoint === sub.endpoint);
+      if (idx === -1) {
+        store.push_subscriptions.push(sub);
+      } else {
+        store.push_subscriptions[idx] = { ...store.push_subscriptions[idx], ...sub };
+      }
+      save(store);
+      return sub;
+    },
+
+    async getPushSubscriptionsForAuthor(author) {
+      return store.push_subscriptions.filter((s) => s.author === author);
+    },
+
+    async deletePushSubscriptionByEndpoint(endpoint) {
+      const before = store.push_subscriptions.length;
+      store.push_subscriptions = store.push_subscriptions.filter((s) => s.endpoint !== endpoint);
+      save(store);
+      return store.push_subscriptions.length < before;
     },
   };
 }

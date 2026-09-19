@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './db.js';
 import { AUTHORS, assertOwnLetter, requireAuthor } from './auth.js';
+import { otherAuthor, sendPushToAuthor } from './push.js';
 
 const router = Router();
 
@@ -58,6 +59,18 @@ router.post('/letters', requireAuthor, async (req, res) => {
     url: `${frontendUrl}/letter/${id}`,
     qrUrl: `${frontendUrl}/qr/${id}`,
   });
+
+  const recipient = otherAuthor(req.author);
+  db.countUnreadInbox(recipient)
+    .then((unreadCount) =>
+      sendPushToAuthor(db, recipient, {
+        title: `New letter from ${req.author}`,
+        body: letter.title,
+        url: `/letter/${id}`,
+        unreadCount,
+      })
+    )
+    .catch((err) => console.warn('[push] letters notify failed:', err.message));
 });
 
 /** My letters — only current role */
@@ -198,6 +211,39 @@ router.get('/archive', requireAuthor, async (req, res) => {
   res.json(await getDb().getInbox(req.author));
 });
 
+/** Public — client needs this before subscribing */
+router.get('/push/vapid-public-key', (_req, res) => {
+  res.json({ publicKey: process.env.VAPID_PUBLIC_KEY || null });
+});
+
+router.post('/push/subscribe', requireAuthor, async (req, res) => {
+  const { subscription } = req.body || {};
+  const endpoint = subscription?.endpoint;
+  const p256dh = subscription?.keys?.p256dh;
+  const auth = subscription?.keys?.auth;
+  if (!endpoint || !p256dh || !auth) {
+    return res.status(400).json({ error: 'Valid push subscription required' });
+  }
+
+  await getDb().insertPushSubscription({
+    id: uuidv4(),
+    author: req.author,
+    endpoint,
+    p256dh,
+    auth,
+    user_agent: req.headers['user-agent'] || null,
+    created_at: new Date().toISOString(),
+  });
+  res.status(201).json({ ok: true });
+});
+
+router.post('/push/unsubscribe', requireAuthor, async (req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
+  await getDb().deletePushSubscriptionByEndpoint(endpoint);
+  res.json({ ok: true });
+});
+
 /** Shared date plans — propose / accept / decline */
 router.get('/plans', requireAuthor, async (_req, res) => {
   res.json(await getDb().getPlans());
@@ -222,6 +268,19 @@ router.post('/plans', requireAuthor, async (req, res) => {
   };
   await getDb().insertPlan(plan);
   res.status(201).json(plan);
+
+  const db = getDb();
+  const recipient = otherAuthor(req.author);
+  db.countUnreadInbox(recipient)
+    .then((unreadCount) =>
+      sendPushToAuthor(db, recipient, {
+        title: 'New date proposed',
+        body: plan.note || `Proposed for ${plan.starts_at}`,
+        url: '/plans',
+        unreadCount,
+      })
+    )
+    .catch((err) => console.warn('[push] plans notify failed:', err.message));
 });
 
 router.post('/plans/:id/accept', requireAuthor, async (req, res) => {
@@ -236,6 +295,17 @@ router.post('/plans/:id/accept', requireAuthor, async (req, res) => {
   }
   const updated = await db.updatePlanStatus(plan.id, 'accepted', new Date().toISOString());
   res.json(updated);
+
+  db.countUnreadInbox(plan.proposed_by)
+    .then((unreadCount) =>
+      sendPushToAuthor(db, plan.proposed_by, {
+        title: 'Date accepted',
+        body: plan.note || `Your date on ${plan.starts_at} was accepted`,
+        url: '/plans',
+        unreadCount,
+      })
+    )
+    .catch((err) => console.warn('[push] plans accept notify failed:', err.message));
 });
 
 router.post('/plans/:id/decline', requireAuthor, async (req, res) => {
@@ -250,6 +320,17 @@ router.post('/plans/:id/decline', requireAuthor, async (req, res) => {
   }
   const updated = await db.updatePlanStatus(plan.id, 'declined', new Date().toISOString());
   res.json(updated);
+
+  db.countUnreadInbox(plan.proposed_by)
+    .then((unreadCount) =>
+      sendPushToAuthor(db, plan.proposed_by, {
+        title: 'Date declined',
+        body: plan.note || `Your date on ${plan.starts_at} was declined`,
+        url: '/plans',
+        unreadCount,
+      })
+    )
+    .catch((err) => console.warn('[push] plans decline notify failed:', err.message));
 });
 
 router.delete('/plans/:id', requireAuthor, async (req, res) => {

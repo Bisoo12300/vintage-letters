@@ -1,4 +1,4 @@
-export const AUTHORS = ['moon', 'fox'];
+export const AUTHORS = ['moon', 'sun'];
 
 export function parseAuthor(req) {
   // Only trust identity headers/query — never body.author (spoofable on POST)
@@ -8,13 +8,13 @@ export function parseAuthor(req) {
   return AUTHORS.includes(raw) ? raw : null;
 }
 
-/** Must be moon or fox — used for CRUD + archive access */
+/** Must be moon or sun — used for CRUD + archive access */
 export function requireAuthor(req, res, next) {
   const author = parseAuthor(req);
   if (!author) {
     return res.status(401).json({
       error: 'Choose who you are',
-      hint: 'Send header x-author: moon|fox',
+      hint: 'Send header x-author: moon|sun',
     });
   }
   req.author = author;

@@ -38,6 +38,8 @@ app.use(
       // same-origin / curl / server-to-server
       if (!origin) return cb(null, true);
       if (allowedOrigins.has(origin)) return cb(null, true);
+      // any local Next port (3000, 3002, …)
+      if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return cb(null, true);
       // Vercel preview deployments for this project
       if (/^https:\/\/[\w-]+\.vercel\.app$/.test(origin)) return cb(null, true);
       console.warn('[cors] blocked origin:', origin);
@@ -54,5 +56,5 @@ await initDb();
 
 app.listen(PORT, () => {
   const db = getDb();
-  console.log(`Vintage Letters API on :${PORT} [${db.kind}] roles=moon|fox`);
+  console.log(`Vintage Letters API on :${PORT} [${db.kind}] roles=moon|sun`);
 });

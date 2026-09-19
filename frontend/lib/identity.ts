@@ -2,13 +2,13 @@ export const IDENTITY_KEY = 'clair-identity';
 
 export const AUTHORS = [
   { id: 'moon', label: 'Moon', emoji: '🌙' },
-  { id: 'fox', label: 'Fox', emoji: '🦊' },
+  { id: 'sun', label: 'Sun', emoji: '☀️' },
 ] as const;
 
 export type AuthorId = (typeof AUTHORS)[number]['id'];
 
 export function isAuthorId(value: string | null | undefined): value is AuthorId {
-  return value === 'moon' || value === 'fox';
+  return value === 'moon' || value === 'sun';
 }
 
 export function authorLabel(id: string | undefined) {

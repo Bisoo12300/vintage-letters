@@ -27,7 +27,7 @@ export default function InboxPage() {
   }, [identity]);
 
   const unread = letters.filter((l) => l.unread).length;
-  const other = identity === 'moon' ? 'Fox' : 'Moon';
+  const other = identity === 'moon' ? 'Sun' : 'Moon';
 
   return (
     <SiteShell>

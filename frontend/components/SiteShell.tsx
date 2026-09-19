@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useIdentity } from '@/components/IdentityGate';
 import { authorEmoji, authorLabel } from '@/lib/identity';
 import { apiFetch } from '@/lib/api';
+import { syncAppBadge } from '@/lib/push';
 
 const NAV = [
   { href: '/', label: 'Letterbook' },
@@ -33,6 +34,7 @@ export function SiteShell({
       apiFetch<{ count: number }>('/inbox/unread-count', { author: identity })
         .then((data) => {
           if (active) setUnread(data.count);
+          syncAppBadge(data.count);
         })
         .catch(() => {});
     };
