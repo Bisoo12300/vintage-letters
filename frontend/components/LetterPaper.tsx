@@ -42,7 +42,7 @@ export function LetterPaper({
           backgroundPosition: 'center',
         }}
       >
-        <div className="relative bg-paper-texture px-8 py-12 sm:px-12 sm:py-16">
+        <div className="relative bg-paper-texture px-6 py-10 sm:px-12 sm:py-16">
           <div className="mb-6 flex items-center gap-3">
             <span className="h-px flex-1 bg-gradient-to-r from-transparent via-mora-brown-400/30 to-transparent" />
             <span className="font-display text-xl text-mora-brown-500">✦</span>
@@ -71,7 +71,7 @@ export function LetterPaper({
           )}
 
           <div
-            className="font-body mx-auto w-[60%] whitespace-pre-wrap text-lg leading-relaxed text-mora-brown-700"
+            className="font-body mx-auto w-full whitespace-pre-wrap text-base leading-relaxed text-mora-brown-700 sm:w-[85%] sm:text-lg"
             style={{ textIndent: '1.5em' }}
           >
             {content}

@@ -20,10 +20,10 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
   const [letters, setLetters] = useState<TimelineLetter[]>([]);
   const [translateX, setTranslateX] = useState(CLOSED_X);
   const [dragging, setDragging] = useState(false);
-  const dragRef = useRef({ startX: 0, startTx: CLOSED_X });
+  const dragRef = useRef({ startX: 0, startTx: CLOSED_X, lastX: 0, lastT: 0, velocity: 0 });
 
   const isOpen = translateX > CLOSED_X + SNAP_OPEN;
-  const openProgress = (translateX - CLOSED_X) / DRAWER_W;
+  const openProgress = Math.max(0, Math.min(1, (translateX - CLOSED_X) / DRAWER_W));
 
   useEffect(() => {
     if (!identity) return;
@@ -32,13 +32,18 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
       .catch(() => {});
   }, [identity]);
 
-  const snap = useCallback((tx: number) => {
+  const snap = useCallback((tx: number, velocity: number) => {
     const pulled = tx - CLOSED_X;
-    setTranslateX(pulled >= SNAP_OPEN ? 0 : CLOSED_X);
+    // Fast flick wins over the distance threshold — like iOS's edge-swipe recognizer.
+    if (Math.abs(velocity) > 0.5) {
+      setTranslateX(velocity > 0 ? 0 : CLOSED_X);
+    } else {
+      setTranslateX(pulled >= SNAP_OPEN ? 0 : CLOSED_X);
+    }
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
-    dragRef.current = { startX: e.clientX, startTx: translateX };
+    dragRef.current = { startX: e.clientX, startTx: translateX, lastX: e.clientX, lastT: e.timeStamp, velocity: 0 };
     setDragging(true);
     e.currentTarget.setPointerCapture(e.pointerId);
   };
@@ -46,14 +51,24 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
   const onPointerMove = (e: React.PointerEvent) => {
     if (!dragging) return;
     const dx = e.clientX - dragRef.current.startX;
-    const next = Math.min(0, Math.max(CLOSED_X, dragRef.current.startTx + dx));
+    const raw = dragRef.current.startTx + dx;
+    // Rubber-band past either edge instead of a hard stop.
+    let next: number;
+    if (raw > 0) next = raw * 0.28;
+    else if (raw < CLOSED_X) next = CLOSED_X + (raw - CLOSED_X) * 0.28;
+    else next = raw;
     setTranslateX(next);
+
+    const dt = e.timeStamp - dragRef.current.lastT;
+    if (dt > 0) dragRef.current.velocity = (e.clientX - dragRef.current.lastX) / dt;
+    dragRef.current.lastX = e.clientX;
+    dragRef.current.lastT = e.timeStamp;
   };
 
   const onPointerUp = () => {
     if (!dragging) return;
     setDragging(false);
-    snap(translateX);
+    snap(translateX, dragRef.current.velocity);
   };
 
   const close = () => setTranslateX(CLOSED_X);
@@ -73,11 +88,17 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
       />
 
       <div
-        className={`fixed left-0 top-0 z-50 flex h-full items-center ${dragging ? '' : 'transition-transform duration-300 ease-out'}`}
+        className={`fixed left-0 top-0 z-50 flex h-full items-center ${dragging ? '' : 'ease-spring transition-transform duration-450'}`}
         style={{ transform: `translateX(${translateX}px)` }}
       >
         <aside className="flex h-full w-[320px] shrink-0 flex-col border-r border-mora-beige-200 bg-mora-cream shadow-soft-lg">
-          <div className="flex-1 overflow-y-auto px-5 py-8">
+          <div
+            className="flex-1 overflow-y-auto px-5 py-8"
+            style={{
+              paddingTop: 'calc(2rem + env(safe-area-inset-top))',
+              paddingBottom: 'calc(2rem + env(safe-area-inset-bottom))',
+            }}
+          >
             {letters.length === 0 ? (
               <p className="font-body text-sm text-mora-brown-400">No letters yet.</p>
             ) : (

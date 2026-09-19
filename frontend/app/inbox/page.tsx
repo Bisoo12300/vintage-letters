@@ -92,9 +92,20 @@ export default function InboxPage() {
                         {authorLabel(letter.author)} · {formatDate(letter.created_at)}
                       </p>
                     </div>
-                    <span className="ml-auto font-body text-sm text-mora-brown-400 opacity-0 transition group-hover:opacity-100">
-                      read →
-                    </span>
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="ml-auto h-4 w-4 shrink-0 text-mora-brown-300 transition group-hover:translate-x-0.5 group-hover:text-mora-brown-500"
+                      aria-hidden
+                    >
+                      <path
+                        d="M9 5l7 7-7 7"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </div>
                 </Link>
               </li>

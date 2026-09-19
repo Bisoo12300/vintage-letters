@@ -31,7 +31,13 @@ function templateBg(templateId: string) {
   return TEMPLATES.find((t) => t.id === templateId)?.background ?? TEMPLATES[0].background;
 }
 
-function PullTab({ onDown }: { onDown: (e: React.PointerEvent) => void }) {
+function PullTab({
+  onDown,
+  pastThreshold,
+}: {
+  onDown: (e: React.PointerEvent) => void;
+  pastThreshold?: boolean;
+}) {
   return (
     <div
       role="slider"
@@ -41,10 +47,18 @@ function PullTab({ onDown }: { onDown: (e: React.PointerEvent) => void }) {
       style={{ touchAction: 'none' }}
     >
       <div
-        className="flex items-center gap-1 rounded-sm px-3 py-1.5 shadow-md rotate-[-1deg]"
-        style={{ background: 'linear-gradient(180deg, #e4d2b4, #d2bea0)' }}
+        className={`flex items-center gap-1 rounded-sm px-3 py-1.5 shadow-md transition-transform duration-150 ${
+          pastThreshold ? 'scale-110 rotate-0' : 'rotate-[-1deg]'
+        }`}
+        style={{
+          background: pastThreshold
+            ? 'linear-gradient(180deg, #d2bea0, #b89e7c)'
+            : 'linear-gradient(180deg, #e4d2b4, #d2bea0)',
+        }}
       >
-        <span className="font-display text-[10px] font-semibold tracking-[0.2em] text-mora-brown-700 uppercase">pull</span>
+        <span className="font-display text-[10px] font-semibold tracking-[0.2em] text-mora-brown-700 uppercase">
+          {pastThreshold ? 'release' : 'pull'}
+        </span>
         <span className="text-[10px] text-mora-brown-600">↑</span>
       </div>
     </div>
@@ -86,18 +100,20 @@ function LetterWithPull({
   title,
   template,
   showPull,
+  pastThreshold,
   onPullDown,
 }: {
   title: string;
   template: string;
   showPull: boolean;
+  pastThreshold?: boolean;
   onPullDown: (e: React.PointerEvent) => void;
 }) {
   return (
     <div className="flex w-full flex-col items-center">
       {showPull && (
         <div className="relative z-10 -mb-1.5 shrink-0">
-          <PullTab onDown={onPullDown} />
+          <PullTab onDown={onPullDown} pastThreshold={pastThreshold} />
         </div>
       )}
       <LetterCard
@@ -115,6 +131,7 @@ function EnvelopeAnimated({
   phase,
   letterPull,
   dragging,
+  pastThreshold,
   onOpen,
   onPullDown,
 }: {
@@ -122,6 +139,7 @@ function EnvelopeAnimated({
   phase: Phase;
   letterPull: number;
   dragging: boolean;
+  pastThreshold: boolean;
   onOpen: () => void;
   onPullDown: (e: React.PointerEvent) => void;
 }) {
@@ -197,13 +215,20 @@ function EnvelopeAnimated({
             }}
           >
             <div
-              className={dragging ? '' : 'transition-transform duration-300 ease-out'}
+              className={
+                dragging
+                  ? pastThreshold
+                    ? 'scale-[1.015] transition-transform duration-150 ease-out'
+                    : 'transition-transform duration-150 ease-out'
+                  : 'ease-spring transition-transform duration-500'
+              }
               style={{ transform: `translateY(${-letterPull}px)` }}
             >
               <LetterWithPull
                 title={letter.title}
                 template={letter.template}
                 showPull={phase === 'pull'}
+                pastThreshold={pastThreshold}
                 onPullDown={onPullDown}
               />
             </div>
@@ -271,6 +296,7 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
   const [phase, setPhase] = useState<Phase>('idle');
   const [letterPull, setLetterPull] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [pastThreshold, setPastThreshold] = useState(false);
   const dragRef = useRef({ startY: 0, startPull: 0 });
   const pullRef = useRef(0);
   const draggingRef = useRef(false);
@@ -297,6 +323,7 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
     if (!draggingRef.current) return;
     draggingRef.current = false;
     setDragging(false);
+    setPastThreshold(false);
     dragCleanupRef.current?.();
     dragCleanupRef.current = null;
 
@@ -323,9 +350,16 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
         ev.preventDefault();
         const dy = dragRef.current.startY - ev.clientY;
         const max = pullMaxRef.current;
-        const next = Math.min(max, Math.max(0, dragRef.current.startPull + dy));
+        const raw = dragRef.current.startPull + dy;
+        // Rubber-band: past the max (or below zero) the pull keeps responding but with
+        // heavy resistance, like iOS overscroll, instead of a hard clamp.
+        let next: number;
+        if (raw > max) next = Math.min(max + 40, max + (raw - max) * 0.28);
+        else if (raw < 0) next = Math.max(-40, raw * 0.28);
+        else next = raw;
         pullRef.current = next;
         setLetterPull(next);
+        setPastThreshold(next / max >= LETTER_REVEAL);
       };
 
       const onUp = () => {
@@ -344,7 +378,13 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
   );
 
   const hint =
-    phase === 'idle' ? 'Tap to open the envelope' : phase === 'pull' ? 'Pull the letter out' : '';
+    phase === 'idle'
+      ? 'Tap to open the envelope'
+      : phase === 'pull'
+        ? pastThreshold
+          ? 'Release to open ↑'
+          : 'Pull the letter out'
+        : '';
 
   return (
     <div className="group relative mx-auto w-full max-w-2xl overflow-visible overscroll-none" style={{ touchAction: phase === 'pull' ? 'none' : 'pan-y' }}>
@@ -357,11 +397,18 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
           phase={phase}
           letterPull={letterPull}
           dragging={dragging}
+          pastThreshold={pastThreshold}
           onOpen={open}
           onPullDown={onPullDown}
         />
       </div>
-      <p className="mt-8 text-center font-display text-sm italic text-mora-brown-400">{hint}</p>
+      <p
+        className={`mt-8 text-center font-display text-sm italic transition-colors ${
+          pastThreshold ? 'text-mora-brown-700' : 'text-mora-brown-400'
+        }`}
+      >
+        {hint}
+      </p>
     </div>
   );
 }

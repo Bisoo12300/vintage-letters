@@ -119,6 +119,10 @@
   animation: overlayFadeIn 0.25s ease-out forwards;
 }
 
+.ease-spring {
+  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 @keyframes envelopeSealBreak {
   0% {
     opacity: 1;

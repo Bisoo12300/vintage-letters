@@ -53,7 +53,10 @@ export function LetterView({ id }: { id: string }) {
   return (
     <>
       <LetterTimelineDrawer currentId={id} />
-      <div className="fixed bottom-6 right-4 z-40 flex flex-col items-stretch gap-2 sm:right-6">
+      <div
+        className="fixed inset-x-4 bottom-6 z-40 flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-6 sm:items-end"
+        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
         <Link href="/" className="mora-btn text-sm shadow-md">
           Back to home
         </Link>

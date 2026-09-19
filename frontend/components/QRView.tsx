@@ -56,9 +56,15 @@ export function QRView({ id }: { id: string }) {
           <h1 className="font-display mb-2 text-2xl font-semibold text-mora-brown-800">{letter.title}</h1>
           <p className="font-body mb-6 text-sm text-mora-brown-500">Scan to open this letter</p>
 
-          <div className="mx-auto inline-block rounded-2xl border-4 border-mora-beige-200 bg-mora-cream p-4 shadow-soft">
+          <div className="mx-auto inline-block max-w-full rounded-2xl border-4 border-mora-beige-200 bg-mora-cream p-4 shadow-soft">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrDataUrl} alt={`QR code for letter ${letter.title}`} width={320} height={320} className="rounded-xl" />
+            <img
+              src={qrDataUrl}
+              alt={`QR code for letter ${letter.title}`}
+              width={320}
+              height={320}
+              className="h-auto w-full max-w-[280px] rounded-xl"
+            />
           </div>
 
           <p className="mt-6 font-body text-sm text-mora-brown-400">

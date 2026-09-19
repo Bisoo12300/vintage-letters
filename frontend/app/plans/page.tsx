@@ -331,7 +331,11 @@ export default function PlansPage() {
         </aside>
 
         {/* Week view */}
-        <section className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-mora-beige-100 bg-white shadow-soft lg:rounded-l-none">
+        <section className="relative min-w-0 flex-1 overflow-hidden rounded-2xl border border-mora-beige-100 bg-white shadow-soft lg:rounded-l-none">
+          <div
+            className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-white to-transparent sm:hidden"
+            aria-hidden
+          />
           <div className="flex flex-wrap items-center gap-2 border-b border-mora-beige-100 px-3 py-2.5 sm:px-4">
             <button
               type="button"
@@ -377,10 +381,10 @@ export default function PlansPage() {
           )}
 
           {!loading && (
-            <div className="overflow-x-auto">
-              <div className="min-w-[720px]">
+            <div className="relative overflow-x-auto [-webkit-overflow-scrolling:touch]">
+              <div className="min-w-[600px]">
                 {/* Day headers */}
-                <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] border-b border-mora-beige-100">
+                <div className="grid grid-cols-[2.75rem_repeat(7,minmax(78px,1fr))] border-b border-mora-beige-100">
                   <div />
                   {days.map((day) => {
                     const isToday = sameDay(day, today);
@@ -412,7 +416,7 @@ export default function PlansPage() {
                 </div>
 
                 {/* Time grid */}
-                <div className="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]">
+                <div className="grid grid-cols-[2.75rem_repeat(7,minmax(78px,1fr))]">
                   <div className="relative" style={{ height: gridH }}>
                     {HOURS.map((h) => (
                       <div
