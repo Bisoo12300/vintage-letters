@@ -1,11 +1,14 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { SiteShell } from '@/components/SiteShell';
 import { PlanModal } from '@/components/plans/PlanModal';
-import { OrbitLoader } from '@/components/brand';
+import { LogoMark, OrbitLoader } from '@/components/brand';
 import { useIdentity } from '@/components/IdentityGate';
-import { apiFetch, formatDate, type DatePlan } from '@/lib/api';
+import { apiFetch, formatDate, type DatePlan, type Milestone } from '@/lib/api';
+import { fromDateParam, momentsOnDay } from '@/lib/moments';
 import { authorLabel } from '@/lib/identity';
 import { AuthorGlyph } from '@/components/brand';
 
@@ -100,11 +103,14 @@ function MiniMonth({
   onPrev,
   onNext,
   showNav,
+  marked,
 }: {
   year: number;
   month: number;
   selected: Date;
   today: Date;
+  /** Days that get a dot (days with a moment) */
+  marked?: (d: Date) => boolean;
   onSelect: (d: Date) => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -150,7 +156,7 @@ function MiniMonth({
               key={day.toISOString()}
               type="button"
               onClick={() => onSelect(day)}
-              className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full transition ${
+              className={`relative mx-auto flex h-7 w-7 items-center justify-center rounded-full transition ${
                 isSelected
                   ? 'bg-ink-800 font-semibold text-white'
                   : isToday
@@ -161,6 +167,14 @@ function MiniMonth({
               }`}
             >
               {day.getDate()}
+              {marked?.(day) && (
+                <span
+                  className={`absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full ${
+                    isSelected ? 'bg-white' : 'bg-rose'
+                  }`}
+                  aria-hidden
+                />
+              )}
             </button>
           );
         })}
@@ -170,14 +184,33 @@ function MiniMonth({
 }
 
 export default function PlansPage() {
+  return (
+    <Suspense
+      fallback={
+        <SiteShell>
+          <div className="flex justify-center py-24">
+            <OrbitLoader />
+          </div>
+        </SiteShell>
+      }
+    >
+      <PlansView />
+    </Suspense>
+  );
+}
+
+function PlansView() {
   const { identity } = useIdentity();
   const today = useMemo(() => startOfDay(new Date()), []);
-  const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
+  // ?date=YYYY-MM-DD opens that week (links from the Moments page)
+  const linkedDay = fromDateParam(useSearchParams().get('date'));
+  const [anchor, setAnchor] = useState(() => linkedDay ?? startOfDay(new Date()));
   const [miniMonth, setMiniMonth] = useState(() => {
-    const d = new Date();
+    const d = linkedDay ?? new Date();
     return { y: d.getFullYear(), m: d.getMonth() };
   });
   const [plans, setPlans] = useState<DatePlan[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -192,9 +225,18 @@ export default function PlansPage() {
 
   const load = useCallback(async () => {
     if (!identity) return;
-    const data = await apiFetch<DatePlan[]>('/plans', { author: identity });
+    const [data, moments] = await Promise.all([
+      apiFetch<DatePlan[]>('/plans', { author: identity }),
+      // Moments are decoration on the calendar — a failure here shouldn't block plans
+      apiFetch<Milestone[]>('/milestones', { author: identity }).catch(() => [] as Milestone[]),
+    ]);
     setPlans(data);
+    setMilestones(moments);
   }, [identity]);
+
+  const hasMoment = useCallback((d: Date) => momentsOnDay(d, milestones).length > 0, [milestones]);
+  const weekMoments = useMemo(() => days.map((d) => momentsOnDay(d, milestones)), [days, milestones]);
+  const weekHasMoments = weekMoments.some((list) => list.length > 0);
 
   useEffect(() => {
     if (!identity) return;
@@ -288,6 +330,7 @@ export default function PlansPage() {
             selected={anchor}
             today={today}
             showNav
+            marked={hasMoment}
             onSelect={(d) => {
               setAnchor(d);
               setMiniMonth({ y: d.getFullYear(), m: d.getMonth() });
@@ -309,6 +352,7 @@ export default function PlansPage() {
               month={nextMonth.m}
               selected={anchor}
               today={today}
+              marked={hasMoment}
               onSelect={(d) => {
                 setAnchor(d);
                 setMiniMonth({ y: d.getFullYear(), m: d.getMonth() });
@@ -415,6 +459,34 @@ export default function PlansPage() {
                     );
                   })}
                 </div>
+
+                {/* Moments — all-day row, only when this week has any */}
+                {weekHasMoments && (
+                  <div className="grid grid-cols-[2.75rem_repeat(7,minmax(78px,1fr))] border-b border-mist-100">
+                    {/* The time gutter is too narrow for a word — the heart mark labels the row */}
+                    <div className="flex items-start justify-center pt-1.5" title="Moments">
+                      <LogoMark className="h-4 w-4" />
+                      <span className="sr-only">Moments</span>
+                    </div>
+                    {weekMoments.map((list, i) => (
+                      <div key={days[i].toISOString()} className="flex min-w-0 flex-col gap-1 border-l border-mist-100 p-1">
+                        {list.map(({ milestone, caption }) => (
+                          <Link
+                            key={milestone.id}
+                            href="/milestones"
+                            title={caption}
+                            className={`flex min-w-0 items-center gap-1 rounded-lg px-1.5 py-1 font-body text-[11px] font-semibold text-ink-800 shadow-[0_2px_8px_-4px_rgba(35,40,88,0.35)] transition-transform duration-300 ease-spring active:scale-95 ${
+                              milestone.mode === 'countup' ? 'bg-moon-glow/90' : 'bg-sun-glow/90'
+                            }`}
+                          >
+                            <AuthorGlyph author={milestone.mode === 'countup' ? 'moon' : 'sun'} className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{caption}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Time grid */}
                 <div className="grid grid-cols-[2.75rem_repeat(7,minmax(78px,1fr))]">

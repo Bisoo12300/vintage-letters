@@ -1,11 +1,13 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { SiteShell } from '@/components/SiteShell';
 import { PlanModal } from '@/components/plans/PlanModal';
 import { OrbitLoader } from '@/components/brand';
 import { useIdentity } from '@/components/IdentityGate';
-import { apiFetch, type Milestone } from '@/lib/api';
+import { apiFetch, type DatePlan, type Milestone } from '@/lib/api';
+import { toDateParam, upcomingPlans } from '@/lib/moments';
 import { authorLabel } from '@/lib/identity';
 import { AuthorGlyph } from '@/components/brand';
 
@@ -139,6 +141,70 @@ function Column({
   );
 }
 
+const UPCOMING_COUNT = 5;
+
+function UpcomingPlans({ plans }: { plans: DatePlan[] }) {
+  return (
+    <section className="mb-10">
+      <div className="mb-3 flex items-baseline justify-between gap-3 px-1">
+        <h2 className="font-display text-2xl font-semibold text-ink-800">Upcoming plans</h2>
+        <Link href="/plans" className="font-body text-[14px] font-semibold text-ink-600 hover:text-ink-800">
+          All plans
+        </Link>
+      </div>
+      {plans.length === 0 ? (
+        <div className="glass flex flex-wrap items-center justify-between gap-3 rounded-glass-lg px-4 py-4">
+          <p className="font-body text-[15px] text-ink-500">Nothing planned yet.</p>
+          <Link href="/plans" className="btn text-[14px]">
+            Propose a plan
+          </Link>
+        </div>
+      ) : (
+        <ul className="glass overflow-hidden rounded-glass-lg">
+          {plans.map((plan, i) => {
+            const start = new Date(plan.starts_at);
+            return (
+              <li key={plan.id}>
+                <Link
+                  href={`/plans?date=${toDateParam(start)}`}
+                  className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-white/50 active:bg-white/70"
+                >
+                  <span className="flex w-12 shrink-0 flex-col items-center rounded-2xl bg-white/70 py-1.5 shadow-[inset_0_1px_0_#fff,0_2px_8px_rgba(35,40,88,0.08)]">
+                    <span className="font-body text-[11px] font-semibold text-rose">
+                      {start.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </span>
+                    <span className="font-display text-2xl font-semibold leading-none text-ink-800">{start.getDate()}</span>
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-body text-[16px] font-semibold text-ink-800">
+                      {plan.note?.trim() || 'Hangout'}
+                    </p>
+                    <p className="mt-0.5 flex items-center gap-1.5 font-body text-[13px] text-ink-500">
+                      {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })},{' '}
+                      {start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      <span aria-hidden>·</span>
+                      <AuthorGlyph author={plan.proposed_by} className="h-3.5 w-3.5" />
+                      {authorLabel(plan.proposed_by)}
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 font-body text-[12px] font-semibold text-ink-800 ${
+                      plan.status === 'accepted' ? 'bg-moon-glow' : 'bg-sun-glow'
+                    }`}
+                  >
+                    {plan.status === 'accepted' ? 'Accepted' : 'Pending'}
+                  </span>
+                </Link>
+                {i < plans.length - 1 && <div className="ml-[4.75rem] h-px bg-ink-800/[0.08]" />}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export default function MilestonesPage() {
   const { identity } = useIdentity();
   const [items, setItems] = useState<Milestone[]>([]);
@@ -160,6 +226,15 @@ export default function MilestonesPage() {
     const data = await apiFetch<Milestone[]>('/milestones', { author: identity });
     setItems(data);
   }, [identity]);
+
+  const [plans, setPlans] = useState<DatePlan[] | null>(null);
+  useEffect(() => {
+    if (!identity) return;
+    apiFetch<DatePlan[]>('/plans', { author: identity })
+      .then(setPlans)
+      .catch(() => setPlans(null)); // section just stays hidden; moments still work
+  }, [identity]);
+  const upcoming = useMemo(() => (plans ? upcomingPlans(plans, UPCOMING_COUNT) : null), [plans]);
 
   useEffect(() => {
     if (!identity) return;
@@ -257,6 +332,8 @@ export default function MilestonesPage() {
           </div>
         )}
         {error && <p className="mb-4 text-center font-body text-[14px] text-rose">{error}</p>}
+
+        {!loading && upcoming && <UpcomingPlans plans={upcoming} />}
 
         {!loading && (
           <div className="grid gap-8 sm:grid-cols-2 sm:gap-6">
