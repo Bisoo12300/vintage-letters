@@ -6,7 +6,7 @@ import { EnvelopeReveal } from '@/components/EnvelopeReveal';
 import { LetterPaper } from '@/components/LetterPaper';
 import { LetterTimelineDrawer } from '@/components/LetterTimelineDrawer';
 import { useReadingTracker } from '@/components/ReadingTracker';
-import { BookLoader } from '@/components/BookLoader';
+import { OrbitLoader } from '@/components/brand';
 import { apiFetch, type Letter } from '@/lib/api';
 
 export function LetterView({ id }: { id: string }) {
@@ -22,29 +22,32 @@ export function LetterView({ id }: { id: string }) {
     setLoading(true);
     apiFetch<Letter>(`/letters/${id}`)
       .then(setLetter)
-      .catch(() => setError('This letter could not be found.'))
+      .catch(() => setError('This letter could not be found. Check the link or ask for a new one.'))
       .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-mora-cream">
-        <BookLoader label="Opening letter…" />
+      <main className="flex min-h-screen items-center justify-center">
+        <OrbitLoader label="Finding your letter…" />
       </main>
     );
   }
 
   if (error || !letter) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-mora-cream p-6">
-        <p className="font-body text-lg text-mora-brown-600">{error}</p>
+      <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
+        <p className="max-w-sm font-body text-[17px] text-ink-600">{error}</p>
+        <Link href="/" className="btn">
+          Go home
+        </Link>
       </main>
     );
   }
 
   if (!revealed) {
     return (
-      <main className="flex min-h-screen items-center justify-center overflow-x-hidden bg-mora-cream px-4 py-10 overscroll-none">
+      <main className="flex min-h-screen items-center justify-center overflow-x-hidden overscroll-none px-4 py-10">
         <EnvelopeReveal letter={letter} onRevealed={() => setRevealed(true)} />
       </main>
     );
@@ -53,19 +56,8 @@ export function LetterView({ id }: { id: string }) {
   return (
     <>
       <LetterTimelineDrawer currentId={id} />
-      <div
-        className="fixed inset-x-4 bottom-6 z-40 flex flex-col items-stretch gap-2 sm:inset-x-auto sm:right-6 sm:items-end"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-      >
-        <Link href="/" className="mora-btn text-sm shadow-md">
-          Back to home
-        </Link>
-        <Link href={`/?reply_to=${letter.id}`} className="mora-btn-primary text-sm shadow-md">
-          Reply to this letter
-        </Link>
-      </div>
-      <main className="flex min-h-screen items-center justify-center bg-mora-cream px-4 py-10 sm:px-6">
-        <div className="animate-fade-in-up w-full max-w-2xl">
+      <main className="flex min-h-screen justify-center px-4 pb-32 pt-10 sm:px-6 sm:pt-16">
+        <div className="animate-letter-land w-full max-w-2xl">
           <LetterPaper
             template={letter.template}
             title={letter.title}
@@ -76,6 +68,21 @@ export function LetterView({ id }: { id: string }) {
           />
         </div>
       </main>
+
+      {/* Floating action capsule */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-center px-4"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+      >
+        <div className="glass-thick animate-fade-in-up flex items-center gap-1.5 rounded-full p-1.5" style={{ animationDelay: '0.35s' }}>
+          <Link href="/" className="flex h-11 items-center rounded-full px-5 font-body text-[15px] font-semibold text-ink-700 transition-transform duration-300 ease-spring hover:bg-white/60 active:scale-95">
+            Home
+          </Link>
+          <Link href={`/?reply_to=${letter.id}`} className="btn-primary">
+            Write back
+          </Link>
+        </div>
+      </div>
     </>
   );
 }

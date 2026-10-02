@@ -8,7 +8,7 @@ import {
   formatTimelineTime,
   type TimelineLetter,
 } from '@/lib/api';
-import { authorEmoji } from '@/lib/identity';
+import { AuthorGlyph } from '@/components/brand';
 import { useIdentity } from '@/components/IdentityGate';
 
 const DRAWER_W = 320;
@@ -78,7 +78,7 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
   return (
     <>
       <div
-        className="fixed inset-0 z-40 bg-mora-brown-800/20 backdrop-blur-[2px] transition-opacity duration-300"
+        className="fixed inset-0 z-40 bg-ink-900/25 backdrop-blur-[3px] transition-opacity duration-300"
         style={{
           opacity: openProgress * 0.85,
           pointerEvents: isOpen ? 'auto' : 'none',
@@ -88,10 +88,13 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
       />
 
       <div
-        className={`fixed left-0 top-0 z-50 flex h-full items-center ${dragging ? '' : 'ease-spring transition-transform duration-450'}`}
-        style={{ transform: `translateX(${translateX}px)` }}
+        className="fixed left-0 top-0 z-50 flex h-full items-center"
+        style={{
+          transform: `translateX(${translateX}px)`,
+          transition: dragging ? 'none' : 'transform 0.55s var(--spring)',
+        }}
       >
-        <aside className="flex h-full w-[320px] shrink-0 flex-col border-r border-mora-beige-200 bg-mora-cream shadow-soft-lg">
+        <aside className="glass-thick flex h-full w-[320px] shrink-0 flex-col rounded-r-[2rem] border-l-0">
           <div
             className="flex-1 overflow-y-auto px-5 py-8"
             style={{
@@ -100,16 +103,16 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
             }}
           >
             {letters.length === 0 ? (
-              <p className="font-body text-sm text-mora-brown-400">No letters yet.</p>
+              <p className="font-body text-[15px] text-ink-400">Your letters will line up here as you write them.</p>
             ) : (
               <ol className="relative space-y-8">
                 <span
-                  className="absolute bottom-2 left-[7px] top-2 w-px bg-mora-beige-300"
+                  className="absolute bottom-2 left-[7px] top-2 w-px bg-ink-200/70"
                   aria-hidden
                 />
                 {groups.map((group) => (
                   <li key={group.date}>
-                    <p className="mb-4 font-body text-xs font-semibold tracking-wide text-mora-brown-500 uppercase">
+                    <p className="mb-4 font-display text-lg font-semibold text-ink-700">
                       {group.date}
                     </p>
                     <ul className="space-y-4">
@@ -120,35 +123,36 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
                             <span
                               className={`absolute left-0 top-2 h-[15px] w-[15px] rounded-full border-2 ${
                                 active
-                                  ? 'border-mora-brown-600 bg-mora-brown-600'
-                                  : 'border-mora-brown-400 bg-white'
+                                  ? 'border-ink-800 bg-ink-800'
+                                  : 'border-ink-300 bg-white/80'
                               }`}
                               aria-hidden
                             />
                             <Link
                               href={`/letter/${letter.id}`}
                               onClick={close}
-                              className={`block rounded-xl px-3 py-2 transition ${
+                              className={`block rounded-2xl px-3 py-2 transition-transform duration-300 ease-spring active:scale-[0.98] ${
                                 active
-                                  ? 'bg-mora-brown-600 text-white'
-                                  : 'text-mora-brown-700 hover:bg-mora-beige-100'
+                                  ? 'bg-ink-800 text-white shadow-[0_8px_20px_-8px_rgba(35,40,88,0.6)]'
+                                  : 'text-ink-700 hover:bg-white/60'
                               }`}
                             >
-                              <p className={`font-display text-sm font-medium ${active ? 'text-white' : ''}`}>
-                                {authorEmoji(letter.author)} {letter.title}
+                              <p className={`flex items-center gap-1.5 font-body text-[15px] font-semibold ${active ? 'text-white' : ''}`}>
+                                <AuthorGlyph author={letter.author} className="h-4 w-4 shrink-0" />
+                                <span className="truncate">{letter.title}</span>
                               </p>
                               {letter.reply_to_title && (
                                 <p
                                   className={`mt-0.5 font-body text-xs italic ${
-                                    active ? 'text-mora-beige-100/90' : 'text-mora-brown-400'
+                                    active ? 'text-white/70' : 'text-ink-400'
                                   }`}
                                 >
-                                  ↳ Re: {letter.reply_to_title}
+                                  Re: {letter.reply_to_title}
                                 </p>
                               )}
                               <p
                                 className={`mt-0.5 font-body text-xs ${
-                                  active ? 'text-mora-beige-100' : 'text-mora-brown-400'
+                                  active ? 'text-white/70' : 'text-ink-400'
                                 }`}
                               >
                                 {formatTimelineTime(letter.created_at)}
@@ -165,7 +169,7 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
           </div>
         </aside>
 
-        {/* Compact washi tape — pull handle only */}
+        {/* Glass grabber — pull to open the timeline */}
         <div
           role="slider"
           aria-label="Pull to open letter timeline"
@@ -176,26 +180,11 @@ export function LetterTimelineDrawer({ currentId }: { currentId: string }) {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          className="relative mx-0 flex w-[44px] shrink-0 cursor-grab touch-none select-none flex-col items-center justify-center py-3 active:cursor-grabbing"
+          className="flex w-11 shrink-0 cursor-grab touch-none select-none items-center justify-center active:cursor-grabbing"
           style={{ touchAction: 'none' }}
         >
-          <div
-            className="relative flex flex-col items-center justify-center rounded-sm px-2 py-4 rotate-[1.5deg] shadow-md"
-            style={{
-              background:
-                'linear-gradient(180deg, rgba(228,210,180,0.95) 0%, rgba(210,190,160,0.9) 50%, rgba(228,210,180,0.95) 100%)',
-              boxShadow: '2px 0 8px rgba(61,52,41,0.12), inset 0 1px 0 rgba(255,255,255,0.35)',
-            }}
-          >
-            <span
-              className="font-display text-[10px] font-semibold tracking-[0.3em] text-mora-brown-700 uppercase"
-              style={{ writingMode: 'vertical-rl' }}
-            >
-              pull
-            </span>
-            <span className="mt-2 text-xs text-mora-brown-600" aria-hidden>
-              ›
-            </span>
+          <div className="glass flex h-20 w-6 items-center justify-center rounded-r-full border-l-0">
+            <span className="h-8 w-1 rounded-full bg-ink-400/60" />
           </div>
         </div>
       </div>

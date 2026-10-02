@@ -3,10 +3,11 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { SiteShell } from '@/components/SiteShell';
 import { PlanModal } from '@/components/plans/PlanModal';
-import { BookLoader } from '@/components/BookLoader';
+import { OrbitLoader } from '@/components/brand';
 import { useIdentity } from '@/components/IdentityGate';
 import { apiFetch, formatDate, type DatePlan } from '@/lib/api';
-import { authorEmoji, authorLabel } from '@/lib/identity';
+import { authorLabel } from '@/lib/identity';
+import { AuthorGlyph } from '@/components/brand';
 
 const HOUR_START = 8;
 const HOUR_END = 22;
@@ -21,9 +22,9 @@ const STATUS_LABEL: Record<DatePlan['status'], string> = {
 };
 
 const STATUS_STYLE: Record<DatePlan['status'], string> = {
-  pending: 'border-amber-300 bg-amber-50 text-amber-950',
-  accepted: 'border-emerald-300 bg-emerald-50 text-emerald-950',
-  declined: 'border-mora-beige-200 bg-mora-beige-50 text-mora-brown-500 line-through opacity-70',
+  pending: 'border-sun/50 bg-sun-glow/80 text-ink-800',
+  accepted: 'border-moon/60 bg-moon-glow/90 text-ink-800',
+  declined: 'border-white/60 bg-white/40 text-ink-400 line-through',
 };
 
 function startOfDay(d: Date) {
@@ -116,25 +117,25 @@ function MiniMonth({
   });
 
   return (
-    <div className="font-body text-xs text-mora-brown-700">
+    <div className="font-body text-xs text-ink-700">
       <div className="mb-2 flex items-center justify-between">
         {showNav ? (
-          <button type="button" onClick={onPrev} className="rounded px-1.5 py-0.5 hover:bg-mora-beige-100">
+          <button type="button" onClick={onPrev} className="rounded px-1.5 py-0.5 hover:bg-mist-100">
             ‹
           </button>
         ) : (
           <span className="w-5" />
         )}
-        <span className="font-medium text-mora-brown-800">{label}</span>
+        <span className="font-medium text-ink-800">{label}</span>
         {showNav ? (
-          <button type="button" onClick={onNext} className="rounded px-1.5 py-0.5 hover:bg-mora-beige-100">
+          <button type="button" onClick={onNext} className="rounded px-1.5 py-0.5 hover:bg-mist-100">
             ›
           </button>
         ) : (
           <span className="w-5" />
         )}
       </div>
-      <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-[10px] text-mora-brown-400">
+      <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-[10px] text-ink-400">
         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
           <span key={d}>{d}</span>
         ))}
@@ -151,12 +152,12 @@ function MiniMonth({
               onClick={() => onSelect(day)}
               className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full transition ${
                 isSelected
-                  ? 'bg-mora-brown-600 font-semibold text-white'
+                  ? 'bg-ink-800 font-semibold text-white'
                   : isToday
-                    ? 'bg-mora-beige-200 font-semibold text-mora-brown-800'
+                    ? 'bg-white/80 font-semibold text-ink-800'
                     : inMonth
-                      ? 'text-mora-brown-700 hover:bg-mora-beige-100'
-                      : 'text-mora-brown-300'
+                      ? 'text-ink-700 hover:bg-white/60'
+                      : 'text-ink-300'
               }`}
             >
               {day.getDate()}
@@ -274,12 +275,12 @@ export default function PlansPage() {
 
   return (
     <SiteShell>
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-3 py-4 sm:px-5 lg:flex-row lg:gap-0">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-4 px-3 pt-6 sm:px-5 lg:flex-row">
         {/* Sidebar */}
-        <aside className="shrink-0 space-y-5 rounded-2xl border border-mora-beige-100 bg-white p-4 shadow-soft lg:w-56 lg:rounded-r-none lg:border-r-0">
+        <aside className="glass shrink-0 space-y-5 rounded-glass-lg p-4 lg:w-60">
           <div>
-            <h1 className="font-display text-xl font-semibold text-mora-brown-800">Plans</h1>
-            <p className="font-body mt-0.5 text-xs text-mora-brown-500">Shared hangouts</p>
+            <h1 className="font-display text-4xl font-semibold leading-none tracking-[-0.02em] text-ink-800">Plans</h1>
+            <p className="mt-1.5 font-body text-[14px] text-ink-500">Propose a time, the other says yes</p>
           </div>
           <MiniMonth
             year={miniMonth.y}
@@ -302,7 +303,7 @@ export default function PlansPage() {
               )
             }
           />
-          <div className="hidden border-t border-mora-beige-100 pt-4 sm:block">
+          <div className="hidden border-t border-mist-100 pt-4 sm:block">
             <MiniMonth
               year={nextMonth.y}
               month={nextMonth.m}
@@ -314,32 +315,32 @@ export default function PlansPage() {
               }}
             />
           </div>
-          <div className="border-t border-mora-beige-100 pt-3 font-body text-xs text-mora-brown-600">
-            <p className="mb-2 font-medium text-mora-brown-500">Calendars</p>
+          <div className="border-t border-mist-100 pt-3 font-body text-xs text-ink-600">
+            <p className="mb-2 font-medium text-ink-500">Calendars</p>
             <label className="flex items-center gap-2">
-              <input type="checkbox" checked readOnly className="accent-mora-brown-600" />
+              <input type="checkbox" checked readOnly className="accent-ink-600" />
               Shared (Moon + Sun)
             </label>
           </div>
           <button
             type="button"
-            className="mora-btn-primary w-full text-sm"
+            className="btn-primary w-full text-sm"
             onClick={() => openCreate(new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate(), 10, 0))}
           >
-            + New plan
+            New plan
           </button>
         </aside>
 
         {/* Week view */}
-        <section className="relative min-w-0 flex-1 overflow-hidden rounded-2xl border border-mora-beige-100 bg-white shadow-soft lg:rounded-l-none">
+        <section className="glass relative min-w-0 flex-1 overflow-hidden rounded-glass-lg">
           <div
-            className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-white to-transparent sm:hidden"
+            className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-8 bg-gradient-to-l from-white/70 to-transparent sm:hidden"
             aria-hidden
           />
-          <div className="flex flex-wrap items-center gap-2 border-b border-mora-beige-100 px-3 py-2.5 sm:px-4">
+          <div className="flex flex-wrap items-center gap-2 border-b border-mist-100 px-3 py-2.5 sm:px-4">
             <button
               type="button"
-              className="mora-btn !px-3 !py-1.5 text-xs"
+              className="btn !px-3 !py-1.5 text-xs"
               onClick={() => {
                 setAnchor(today);
                 setMiniMonth({ y: today.getFullYear(), m: today.getMonth() });
@@ -349,7 +350,7 @@ export default function PlansPage() {
             </button>
             <button
               type="button"
-              className="rounded-lg px-2 py-1 text-mora-brown-600 hover:bg-mora-beige-50"
+              className="rounded-lg px-2 py-1 text-ink-600 hover:bg-mist-50"
               onClick={() => setAnchor(addDays(weekStart, -7))}
               aria-label="Previous week"
             >
@@ -357,26 +358,26 @@ export default function PlansPage() {
             </button>
             <button
               type="button"
-              className="rounded-lg px-2 py-1 text-mora-brown-600 hover:bg-mora-beige-50"
+              className="rounded-lg px-2 py-1 text-ink-600 hover:bg-mist-50"
               onClick={() => setAnchor(addDays(weekStart, 7))}
               aria-label="Next week"
             >
               ›
             </button>
-            <h2 className="font-display text-base font-semibold text-mora-brown-800 sm:text-lg">
+            <h2 className="font-display text-base font-semibold text-ink-800 sm:text-lg">
               {formatWeekRange(weekStart)}
             </h2>
-            <span className="ml-auto font-body text-xs text-mora-brown-400">Week</span>
+            <span className="ml-auto font-body text-xs text-ink-400">Week</span>
           </div>
 
           {error && (
-            <p className="font-body border-b border-red-100 bg-red-50 px-4 py-2 text-sm text-red-700">
+            <p className="border-b border-rose/20 bg-rose-soft/60 px-4 py-2 font-body text-[14px] text-ink-800">
               {error}
             </p>
           )}
           {loading && (
             <div className="flex justify-center py-16">
-              <BookLoader label="Loading plans…" />
+              <OrbitLoader label="Loading plans…" />
             </div>
           )}
 
@@ -384,7 +385,7 @@ export default function PlansPage() {
             <div className="relative overflow-x-auto [-webkit-overflow-scrolling:touch]">
               <div className="min-w-[600px]">
                 {/* Day headers */}
-                <div className="grid grid-cols-[2.75rem_repeat(7,minmax(78px,1fr))] border-b border-mora-beige-100">
+                <div className="grid grid-cols-[2.75rem_repeat(7,minmax(78px,1fr))] border-b border-mist-100">
                   <div />
                   {days.map((day) => {
                     const isToday = sameDay(day, today);
@@ -394,18 +395,18 @@ export default function PlansPage() {
                         key={day.toISOString()}
                         type="button"
                         onClick={() => setAnchor(day)}
-                        className={`border-l border-mora-beige-100 px-2 py-2 text-center font-body ${
-                          isToday ? 'bg-mora-beige-50' : ''
-                        } ${isSelected ? 'ring-inset ring-1 ring-mora-brown-400' : ''}`}
+                        className={`border-l border-mist-100 px-2 py-2 text-center font-body ${
+                          isToday ? 'bg-white/40' : ''
+                        } ${isSelected ? 'ring-inset ring-1 ring-ink-400' : ''}`}
                       >
-                        <div className="text-[10px] uppercase tracking-wide text-mora-brown-400">
+                        <div className="text-[11px] font-medium text-ink-400">
                           {day.toLocaleDateString('en-US', { weekday: 'short' })}
                         </div>
                         <div
                           className={`mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
                             isToday
-                              ? 'bg-mora-brown-600 text-white'
-                              : 'text-mora-brown-800'
+                              ? 'bg-ink-800 text-white shadow-[0_4px_12px_-4px_rgba(35,40,88,0.6)]'
+                              : 'text-ink-800'
                           }`}
                         >
                           {day.getDate()}
@@ -421,7 +422,7 @@ export default function PlansPage() {
                     {HOURS.map((h) => (
                       <div
                         key={h}
-                        className="absolute right-1 -translate-y-1/2 font-body text-[10px] text-mora-brown-400"
+                        className="absolute right-1 -translate-y-1/2 font-body text-[10px] text-ink-400"
                         style={{ top: (h - HOUR_START) * HOUR_H }}
                       >
                         {formatHour(h)}
@@ -432,7 +433,7 @@ export default function PlansPage() {
                   {days.map((day) => (
                     <div
                       key={day.toISOString()}
-                      className="relative border-l border-mora-beige-100"
+                      className="relative border-l border-mist-100"
                       style={{ height: gridH }}
                     >
                       {HOURS.map((h) => (
@@ -440,7 +441,7 @@ export default function PlansPage() {
                           key={h}
                           type="button"
                           aria-label={`Add plan ${formatHour(h)}`}
-                          className="absolute left-0 right-0 w-full border-t border-mora-beige-50 hover:bg-mora-beige-50/80"
+                          className="absolute left-0 right-0 w-full border-t border-ink-800/[0.05] hover:bg-white/40"
                           style={{ top: (h - HOUR_START) * HOUR_H, height: HOUR_H }}
                           onClick={() => onSlotClick(day, h)}
                         />
@@ -463,7 +464,7 @@ export default function PlansPage() {
                                 e.stopPropagation();
                                 setSelected(plan);
                               }}
-                              className={`absolute left-0.5 right-0.5 z-10 overflow-hidden rounded-md border px-1.5 py-1 text-left shadow-sm transition hover:brightness-95 ${STATUS_STYLE[plan.status]}`}
+                              className={`absolute left-0.5 right-0.5 z-10 overflow-hidden rounded-lg border px-1.5 py-1 text-left shadow-[0_4px_12px_-6px_rgba(35,40,88,0.35)] backdrop-blur-md transition-transform duration-300 ease-spring active:scale-95 ${STATUS_STYLE[plan.status]}`}
                               style={{
                                 top: Math.max(0, top),
                                 height: Math.max(28, height),
@@ -472,8 +473,9 @@ export default function PlansPage() {
                               <p className="truncate font-body text-[11px] font-semibold leading-tight">
                                 {plan.note?.trim() || 'Hangout'}
                               </p>
-                              <p className="truncate font-body text-[10px] opacity-80">
-                                {authorEmoji(plan.proposed_by)} {STATUS_LABEL[plan.status]}
+                              <p className="flex items-center gap-1 truncate font-body text-[10px] opacity-80">
+                                <AuthorGlyph author={plan.proposed_by} className="h-3 w-3 shrink-0" />
+                                {STATUS_LABEL[plan.status]}
                               </p>
                             </button>
                           );
@@ -490,25 +492,25 @@ export default function PlansPage() {
       <PlanModal open={createOpen} title="New plan" onClose={() => setCreateOpen(false)}>
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
-            <label className="mb-1 block font-body text-sm text-mora-brown-600">When</label>
+            <label className="mb-1 block font-body text-sm text-ink-600">When</label>
             <input
               type="datetime-local"
               required
-              className="mora-input"
+              className="field"
               value={startsAt}
               onChange={(e) => setStartsAt(e.target.value)}
             />
           </div>
           <div>
-            <label className="mb-1 block font-body text-sm text-mora-brown-600">Note</label>
+            <label className="mb-1 block font-body text-sm text-ink-600">Note</label>
             <textarea
-              className="mora-textarea min-h-[100px]"
+              className="field-area min-h-[100px]"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Coffee, walk, movie…"
             />
           </div>
-          <button type="submit" className="mora-btn-primary text-sm" disabled={busy || !identity}>
+          <button type="submit" className="btn-primary text-sm" disabled={busy || !identity}>
             {busy ? 'Saving…' : 'Propose'}
           </button>
         </form>
@@ -520,15 +522,15 @@ export default function PlansPage() {
         onClose={() => setSelected(null)}
       >
         {selected && (
-          <div className="space-y-4 font-body text-sm text-mora-brown-700">
+          <div className="space-y-4 font-body text-sm text-ink-700">
             <div>
-              <p className="font-display text-lg font-semibold text-mora-brown-800">
+              <p className="font-display text-lg font-semibold text-ink-800">
                 {selected.note?.trim() || 'Hangout'}
               </p>
-              <p className="mt-1 text-mora-brown-500">{formatDate(selected.starts_at)}</p>
-              <p className="mt-1">
-                {authorEmoji(selected.proposed_by)} {authorLabel(selected.proposed_by)} ·{' '}
-                {STATUS_LABEL[selected.status]}
+              <p className="mt-1 text-ink-500">{formatDate(selected.starts_at)}</p>
+              <p className="mt-1 flex items-center gap-1.5">
+                <AuthorGlyph author={selected.proposed_by} className="h-4 w-4" />
+                Proposed by {authorLabel(selected.proposed_by)} · {STATUS_LABEL[selected.status]}
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -538,7 +540,7 @@ export default function PlansPage() {
                   <>
                     <button
                       type="button"
-                      className="mora-btn-primary text-sm"
+                      className="btn-primary text-sm"
                       disabled={busy}
                       onClick={() => respond(selected.id, 'accept')}
                     >
@@ -546,7 +548,7 @@ export default function PlansPage() {
                     </button>
                     <button
                       type="button"
-                      className="mora-btn text-sm"
+                      className="btn text-sm"
                       disabled={busy}
                       onClick={() => respond(selected.id, 'decline')}
                     >
@@ -556,7 +558,7 @@ export default function PlansPage() {
                 )}
               <button
                 type="button"
-                className="mora-btn border-red-200 text-sm text-red-700"
+                className="btn-danger text-sm"
                 disabled={busy}
                 onClick={() => remove(selected.id)}
               >

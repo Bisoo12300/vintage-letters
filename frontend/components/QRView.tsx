@@ -5,6 +5,7 @@ import Link from 'next/link';
 import QRCode from 'qrcode';
 import { SiteShell } from '@/components/SiteShell';
 import { apiFetch, type Letter } from '@/lib/api';
+import { OrbitLoader } from '@/components/brand';
 
 export function QRView({ id }: { id: string }) {
   const [letter, setLetter] = useState<Letter | null>(null);
@@ -22,7 +23,7 @@ export function QRView({ id }: { id: string }) {
         const qr = await QRCode.toDataURL(url, {
           width: 320,
           margin: 2,
-          color: { dark: '#3D3429', light: '#FAF8F4' },
+          color: { dark: '#232858', light: '#FFFFFF' },
         });
         setQrDataUrl(qr);
       })
@@ -33,7 +34,7 @@ export function QRView({ id }: { id: string }) {
     return (
       <SiteShell>
         <div className="flex min-h-[50vh] items-center justify-center">
-          <p className="font-body text-mora-brown-700">{error}</p>
+          <p className="font-body text-[17px] text-ink-600">This letter could not be found.</p>
         </div>
       </SiteShell>
     );
@@ -43,7 +44,7 @@ export function QRView({ id }: { id: string }) {
     return (
       <SiteShell>
         <div className="flex min-h-[50vh] items-center justify-center">
-          <p className="font-display animate-pulse text-xl text-mora-brown-400">Crafting QR code...</p>
+          <OrbitLoader label="Making the QR code…" />
         </div>
       </SiteShell>
     );
@@ -52,11 +53,11 @@ export function QRView({ id }: { id: string }) {
   return (
     <SiteShell>
       <div className="flex min-h-[60vh] items-center justify-center p-6">
-        <div className="mora-card animate-fade-in-up max-w-md text-center">
-          <h1 className="font-display mb-2 text-2xl font-semibold text-mora-brown-800">{letter.title}</h1>
-          <p className="font-body mb-6 text-sm text-mora-brown-500">Scan to open this letter</p>
+        <div className="glass-card animate-fade-in-up max-w-md text-center">
+          <h1 className="mb-2 font-display text-3xl font-semibold text-ink-800">{letter.title}</h1>
+          <p className="mb-6 font-body text-[15px] text-ink-500">Scan with a phone camera to open the envelope</p>
 
-          <div className="mx-auto inline-block max-w-full rounded-2xl border-4 border-mora-beige-200 bg-mora-cream p-4 shadow-soft">
+          <div className="mx-auto inline-block max-w-full rounded-[1.75rem] bg-white p-4 shadow-[0_12px_32px_-12px_rgba(35,40,88,0.3)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={qrDataUrl}
@@ -67,16 +68,16 @@ export function QRView({ id }: { id: string }) {
             />
           </div>
 
-          <p className="mt-6 font-body text-sm text-mora-brown-400">
-            Print or screenshot for your recipient
+          <p className="mt-6 font-body text-[14px] text-ink-400">
+            Print it or save a screenshot to hand over
           </p>
 
           <div className="mt-6 flex justify-center gap-3">
-            <Link href={`/letter/${id}`} className="mora-btn text-sm">
-              View Letter
+            <Link href={`/letter/${id}`} className="btn text-sm">
+              Open letter
             </Link>
-            <Link href="/" className="mora-btn text-sm">
-              Compose New
+            <Link href="/" className="btn text-sm">
+              Write another
             </Link>
           </div>
         </div>

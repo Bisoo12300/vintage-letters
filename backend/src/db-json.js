@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataPath = path.join(__dirname, '..', 'data', 'store.json');
-const defaultStore = { letters: [], reading_sessions: [], date_plans: [], push_subscriptions: [] };
+const defaultStore = { letters: [], reading_sessions: [], date_plans: [], milestones: [], push_subscriptions: [] };
 
 function load() {
   fs.mkdirSync(path.dirname(dataPath), { recursive: true });
@@ -15,6 +15,7 @@ function load() {
   const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
   if (!data.reading_sessions) data.reading_sessions = [];
   if (!data.date_plans) data.date_plans = [];
+  if (!data.milestones) data.milestones = [];
   if (!data.push_subscriptions) data.push_subscriptions = [];
   return data;
 }
@@ -25,6 +26,15 @@ function withAuthor(letter) {
     author: letter.author || 'moon',
     reply_to: letter.reply_to || null,
   };
+}
+
+function paginate(list, page) {
+  return page ? list.slice(page.offset, page.offset + page.limit) : list;
+}
+
+/** Newest first, id as tiebreak — same order as the Postgres store */
+function newestFirst(a, b) {
+  return b.created_at.localeCompare(a.created_at) || b.id.localeCompare(a.id);
 }
 
 function save(store) {
@@ -106,14 +116,14 @@ export function createJsonDb() {
       };
     },
 
-    async allLettersWithStats(author) {
+    async allLettersWithStats(author, page) {
       if (!author) return [];
-      const letters = store.letters.filter((l) => withAuthor(l).author === author);
-      return Promise.all(letters.map((l) => this.letterWithStats(l.id)));
+      const letters = store.letters.filter((l) => withAuthor(l).author === author).sort(newestFirst);
+      return Promise.all(paginate(letters, page).map((l) => this.letterWithStats(l.id)));
     },
 
-    async getInbox(reader) {
-      return store.letters
+    async getInbox(reader, page) {
+      const inbox = store.letters
         .filter((l) => withAuthor(l).author !== reader)
         .map((l) => {
           const letter = withAuthor(l);
@@ -129,7 +139,16 @@ export function createJsonDb() {
             unread,
           };
         })
-        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+        .sort(newestFirst);
+      return paginate(inbox, page);
+    },
+
+    async countLetters(author) {
+      return store.letters.filter((l) => withAuthor(l).author === author).length;
+    },
+
+    async countInbox(reader) {
+      return store.letters.filter((l) => withAuthor(l).author !== reader).length;
     },
 
     async countUnreadInbox(reader) {
@@ -181,6 +200,35 @@ export function createJsonDb() {
       store.date_plans = store.date_plans.filter((p) => p.id !== id);
       save(store);
       return store.date_plans.length < before;
+    },
+
+    async getMilestones() {
+      return [...store.milestones].sort((a, b) => a.at.localeCompare(b.at));
+    },
+
+    async getMilestone(id) {
+      return store.milestones.find((m) => m.id === id) || null;
+    },
+
+    async insertMilestone(milestone) {
+      store.milestones.push(milestone);
+      save(store);
+      return milestone;
+    },
+
+    async updateMilestone(id, updates) {
+      const idx = store.milestones.findIndex((m) => m.id === id);
+      if (idx === -1) return null;
+      store.milestones[idx] = { ...store.milestones[idx], ...updates };
+      save(store);
+      return store.milestones[idx];
+    },
+
+    async deleteMilestone(id) {
+      const before = store.milestones.length;
+      store.milestones = store.milestones.filter((m) => m.id !== id);
+      save(store);
+      return store.milestones.length < before;
     },
 
     async insertPushSubscription(sub) {

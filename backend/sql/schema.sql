@@ -38,6 +38,18 @@ CREATE TABLE IF NOT EXISTS date_plans (
 
 CREATE INDEX IF NOT EXISTS idx_plans_starts ON date_plans(starts_at);
 
+CREATE TABLE IF NOT EXISTS milestones (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  mode TEXT NOT NULL DEFAULT 'countdown',
+  at TIMESTAMPTZ NOT NULL,
+  created_by TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_milestones_at ON milestones(at);
+
 CREATE TABLE IF NOT EXISTS push_subscriptions (
   id TEXT PRIMARY KEY,
   author TEXT NOT NULL,

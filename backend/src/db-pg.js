@@ -132,9 +132,10 @@ export async function createPgDb(connectionString) {
       return formatLetterStats(rows[0]);
     },
 
-    async allLettersWithStats(author) {
+    async allLettersWithStats(author, page) {
       // My letters only — never return the full shared inbox here
       if (!author) return [];
+      const { clause, params } = pageClause(page, 2);
       const { rows } = await pool.query(
         `SELECT
            l.id, l.title, l.content, l.template, l.author, l.reply_to, l.created_at,
@@ -145,14 +146,15 @@ export async function createPgDb(connectionString) {
          LEFT JOIN reading_sessions rs ON rs.letter_id = l.id
          WHERE l.author = $1
          GROUP BY l.id
-         ORDER BY l.created_at DESC`,
-        [author]
+         ORDER BY l.created_at DESC, l.id DESC${clause}`,
+        [author, ...params]
       );
       return rows.map(formatLetterStats);
     },
 
     /** Letters from the other role — unread = no reading_session by this reader */
-    async getInbox(reader) {
+    async getInbox(reader, page) {
+      const { clause, params } = pageClause(page, 2);
       const { rows } = await pool.query(
         `SELECT
            l.id, l.title, l.template, l.author, l.created_at,
@@ -162,8 +164,8 @@ export async function createPgDb(connectionString) {
            ) AS unread
          FROM letters l
          WHERE l.author <> $1
-         ORDER BY l.created_at DESC`,
-        [reader]
+         ORDER BY l.created_at DESC, l.id DESC${clause}`,
+        [reader, ...params]
       );
       return rows.map((row) => ({
         id: row.id,
@@ -173,6 +175,16 @@ export async function createPgDb(connectionString) {
         created_at: toIso(row.created_at),
         unread: Boolean(row.unread),
       }));
+    },
+
+    async countLetters(author) {
+      const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM letters WHERE author = $1', [author]);
+      return rows[0]?.n ?? 0;
+    },
+
+    async countInbox(reader) {
+      const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM letters WHERE author <> $1', [reader]);
+      return rows[0]?.n ?? 0;
     },
 
     async countUnreadInbox(reader) {
@@ -254,6 +266,47 @@ export async function createPgDb(connectionString) {
       return rowCount > 0;
     },
 
+    async getMilestones() {
+      const { rows } = await pool.query(
+        `SELECT id, title, mode, at, created_by, created_at, updated_at
+         FROM milestones
+         ORDER BY at ASC`
+      );
+      return rows.map(formatMilestone);
+    },
+
+    async getMilestone(id) {
+      const { rows } = await pool.query(
+        `SELECT id, title, mode, at, created_by, created_at, updated_at
+         FROM milestones WHERE id = $1`,
+        [id]
+      );
+      return rows[0] ? formatMilestone(rows[0]) : null;
+    },
+
+    async insertMilestone(m) {
+      await pool.query(
+        `INSERT INTO milestones (id, title, mode, at, created_by, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [m.id, m.title, m.mode, m.at, m.created_by, m.created_at, m.updated_at]
+      );
+      return m;
+    },
+
+    async updateMilestone(id, { title, mode, at, updated_at }) {
+      const { rowCount } = await pool.query(
+        `UPDATE milestones SET title = $1, mode = $2, at = $3, updated_at = $4 WHERE id = $5`,
+        [title, mode, at, updated_at, id]
+      );
+      if (!rowCount) return null;
+      return this.getMilestone(id);
+    },
+
+    async deleteMilestone(id) {
+      const { rowCount } = await pool.query('DELETE FROM milestones WHERE id = $1', [id]);
+      return rowCount > 0;
+    },
+
     async insertPushSubscription(sub) {
       await pool.query(
         `INSERT INTO push_subscriptions (id, author, endpoint, p256dh, auth, user_agent, created_at)
@@ -329,6 +382,18 @@ function formatPlan(row) {
   };
 }
 
+function formatMilestone(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    mode: row.mode,
+    at: toIso(row.at),
+    created_by: row.created_by,
+    created_at: toIso(row.created_at),
+    updated_at: toIso(row.updated_at),
+  };
+}
+
 function formatPushSubscription(row) {
   return {
     id: row.id,
@@ -338,6 +403,15 @@ function formatPushSubscription(row) {
     auth: row.auth,
     user_agent: row.user_agent || null,
     created_at: toIso(row.created_at),
+  };
+}
+
+/** Optional LIMIT/OFFSET — no page means the full list (backward compatible). */
+function pageClause(page, firstParam) {
+  if (!page) return { clause: '', params: [] };
+  return {
+    clause: ` LIMIT $${firstParam} OFFSET $${firstParam + 1}`,
+    params: [page.limit, page.offset],
   };
 }
 

@@ -100,6 +100,16 @@ export interface DatePlan {
   responded_at: string | null;
 }
 
+export interface Milestone {
+  id: string;
+  title: string;
+  mode: 'countdown' | 'countup';
+  at: string;
+  created_by: 'moon' | 'sun';
+  created_at: string;
+  updated_at: string;
+}
+
 /** @deprecated use InboxLetter */
 export type ArchiveLetter = InboxLetter;
 

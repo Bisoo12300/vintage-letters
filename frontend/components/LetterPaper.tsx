@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { TEMPLATES } from '@/lib/api';
-import { authorEmoji, authorLabel } from '@/lib/identity';
+import { authorLabel } from '@/lib/identity';
+import { AuthorGlyph, LogoMark } from '@/components/brand';
 
 interface LetterPaperProps {
   template: string;
@@ -24,70 +25,51 @@ export function LetterPaper({
   const tpl = TEMPLATES.find((t) => t.id === template) || TEMPLATES[0];
 
   return (
-    <div className="relative mx-auto w-full max-w-2xl">
-      <div
-        className="absolute -top-3 left-1/2 z-20 h-7 w-20 -translate-x-1/2 rounded-sm opacity-70"
-        style={{
-          background: 'linear-gradient(135deg, #E0D6C8, #D4C9B8)',
-          boxShadow: '0 1px 3px rgba(61,52,41,0.1)',
-        }}
-        aria-hidden
-      />
+    <article
+      className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-[2rem] shadow-letter ring-1 ring-white/60"
+      style={{
+        backgroundImage: `url(${tpl.background})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="relative bg-paper-texture px-6 pb-12 pt-10 sm:px-14 sm:pb-16 sm:pt-14">
+        <LogoMark className="mx-auto mb-6 h-7 w-7 opacity-80" />
 
-      <article
-        className="relative overflow-hidden rounded-mora-lg shadow-letter"
-        style={{
-          backgroundImage: `url(${tpl.background})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="relative bg-paper-texture px-6 py-10 sm:px-12 sm:py-16">
-          <div className="mb-6 flex items-center gap-3">
-            <span className="h-px flex-1 bg-gradient-to-r from-transparent via-mora-brown-400/30 to-transparent" />
-            <span className="font-display text-xl text-mora-brown-500">✦</span>
-            <span className="h-px flex-1 bg-gradient-to-r from-transparent via-mora-brown-400/30 to-transparent" />
-          </div>
+        <h1 className="text-balance text-center font-letter text-[1.75rem] font-semibold leading-tight text-ink-800 sm:text-[2.1rem]">
+          {title}
+        </h1>
 
-          <h1 className="font-display mb-2 text-center text-2xl font-semibold text-mora-brown-800 sm:text-3xl">
-            {title}
-          </h1>
-          {author && (
-            <p className={`font-body text-center text-sm text-mora-brown-500 ${replyToTitle ? 'mb-2' : 'mb-8'}`}>
-              {authorEmoji(author)} {authorLabel(author)}
-            </p>
-          )}
-          {replyToTitle && (
-            <p className="font-body mb-8 text-center text-sm italic text-mora-brown-400">
-              ↳ In reply to{' '}
-              {replyToId ? (
-                <Link href={`/letter/${replyToId}`} className="underline hover:text-mora-brown-600">
-                  {replyToTitle}
-                </Link>
-              ) : (
-                replyToTitle
-              )}
-            </p>
-          )}
+        {author && (
+          <p className="mt-3 flex items-center justify-center gap-1.5 font-body text-[14px] font-medium text-ink-500">
+            <AuthorGlyph author={author} className="h-4 w-4" />
+            From {authorLabel(author)}
+          </p>
+        )}
+        {replyToTitle && (
+          <p className="mt-1.5 text-center font-body text-[13px] text-ink-400">
+            In reply to{' '}
+            {replyToId ? (
+              <Link href={`/letter/${replyToId}`} className="underline decoration-ink-300 underline-offset-2 hover:text-ink-700">
+                {replyToTitle}
+              </Link>
+            ) : (
+              replyToTitle
+            )}
+          </p>
+        )}
 
-          <div
-            className="font-body mx-auto w-full whitespace-pre-wrap text-base leading-relaxed text-mora-brown-700 sm:w-[85%] sm:text-lg"
-            style={{ textIndent: '1.5em' }}
-          >
-            {content}
-          </div>
-
-          <div className="mt-10 flex items-center gap-3">
-            <span className="h-px flex-1 bg-gradient-to-r from-transparent via-mora-brown-400/20 to-transparent" />
-            <span className="font-body text-xs tracking-[0.3em] text-mora-brown-400 uppercase">
-              ~ love you ~
-            </span>
-            <span className="h-px flex-1 bg-gradient-to-r from-transparent via-mora-brown-400/20 to-transparent" />
-          </div>
-
-          {children}
+        <div
+          className="mx-auto mt-10 max-w-[34rem] whitespace-pre-wrap font-letter text-[17px] leading-[1.85] text-ink-800/90 sm:text-[18px]"
+          style={{ textIndent: '1.5em' }}
+        >
+          {content}
         </div>
-      </article>
-    </div>
+
+        <p className="mt-12 text-center font-letter text-[17px] italic text-ink-500">with love</p>
+
+        {children}
+      </div>
+    </article>
   );
 }

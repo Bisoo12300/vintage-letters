@@ -8,7 +8,7 @@ import {
   writeStoredIdentity,
   type AuthorId,
 } from '@/lib/identity';
-import { BookLoader } from '@/components/BookLoader';
+import { AuthorGlyph, LogoMark, OrbitLoader } from '@/components/brand';
 import { ensurePushSubscription } from '@/lib/push';
 
 const IdentityContext = createContext<{
@@ -25,10 +25,12 @@ export function useIdentity() {
   return useContext(IdentityContext);
 }
 
+const ENTER_MS = 520;
+
 export function IdentityGate({ children }: { children: React.ReactNode }) {
   const [identity, setIdentityState] = useState<AuthorId | null>(null);
   const [ready, setReady] = useState(false);
-  const [picked, setPicked] = useState<AuthorId>('moon');
+  const [entering, setEntering] = useState<AuthorId | null>(null);
 
   useEffect(() => {
     const stored = readStoredIdentity();
@@ -36,6 +38,13 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
     setReady(true);
     if (stored) ensurePushSubscription(stored);
   }, []);
+
+  // The sky tint follows whoever is signed in (or being picked).
+  useEffect(() => {
+    const tint = entering ?? identity;
+    if (tint) document.documentElement.dataset.identity = tint;
+    else delete document.documentElement.dataset.identity;
+  }, [identity, entering]);
 
   const value = useMemo(
     () => ({
@@ -53,10 +62,19 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
     [identity]
   );
 
+  function pick(id: AuthorId) {
+    if (entering) return;
+    setEntering(id);
+    setTimeout(() => {
+      value.setIdentity(id);
+      setEntering(null);
+    }, ENTER_MS);
+  }
+
   if (!ready) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-mora-cream">
-        <BookLoader />
+      <div className="flex min-h-screen items-center justify-center">
+        <OrbitLoader />
       </div>
     );
   }
@@ -64,50 +82,48 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
   return (
     <IdentityContext.Provider value={value}>
       {!identity ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-mora-cream px-5">
-          <form
-            className="mora-card animate-fade-in-up w-full max-w-md text-center"
-            onSubmit={(e) => {
-              e.preventDefault();
-              value.setIdentity(picked);
-            }}
-          >
-            <p className="font-body text-sm tracking-widest text-mora-brown-500 uppercase">Clair de Lune</p>
-            <h1 className="font-display mt-2 text-3xl font-semibold text-mora-brown-800">Who are you?</h1>
-            <p className="font-body mt-3 text-mora-brown-500">
-              Choose Moon or Sun. You can switch anytime from the header.
+        <div
+          className="fixed inset-0 z-[80] flex flex-col items-center justify-center px-6 transition-opacity duration-500 ease-ios"
+          style={{ opacity: entering ? 0 : 1 }}
+        >
+          <div className="animate-fade-in-up flex flex-col items-center text-center">
+            <LogoMark className="h-16 w-16 drop-shadow-[0_8px_20px_rgba(35,40,88,0.25)]" />
+            <h1 className="mt-6 font-display text-5xl font-semibold italic tracking-[-0.02em] text-ink-800 sm:text-6xl">
+              Clair de Lune
+            </h1>
+            <p className="mt-3 max-w-xs font-body text-[17px] leading-snug text-ink-500">
+              Who's writing tonight? Tap your side of the sky.
             </p>
+          </div>
 
-            <fieldset className="mt-8 space-y-3 text-left">
-              {AUTHORS.map((author) => (
-                <label
+          <div className="mt-12 flex items-center gap-6 sm:gap-10">
+            {AUTHORS.map((author, i) => {
+              const chosen = entering === author.id;
+              const dimmed = entering && !chosen;
+              return (
+                <button
                   key={author.id}
-                  className={`flex cursor-pointer items-center gap-4 rounded-2xl border px-4 py-4 transition ${
-                    picked === author.id
-                      ? 'border-mora-brown-500 bg-mora-beige-50 shadow-soft'
-                      : 'border-mora-beige-200 bg-white hover:border-mora-brown-300'
-                  }`}
+                  type="button"
+                  onClick={() => pick(author.id)}
+                  className="animate-fade-in-up group flex flex-col items-center gap-4"
+                  style={{ animationDelay: `${0.12 + i * 0.08}s` }}
                 >
-                  <input
-                    type="radio"
-                    name="identity"
-                    value={author.id}
-                    checked={picked === author.id}
-                    onChange={() => setPicked(author.id)}
-                    className="h-4 w-4 accent-mora-brown-600"
-                  />
-                  <span className="text-2xl" aria-hidden>
-                    {author.emoji}
+                  <span
+                    className="glass flex h-32 w-32 items-center justify-center rounded-full transition-transform duration-500 ease-spring group-hover:scale-105 group-active:scale-95 sm:h-40 sm:w-40"
+                    style={{
+                      transform: chosen ? 'scale(1.18)' : dimmed ? 'scale(0.85)' : undefined,
+                      opacity: dimmed ? 0.4 : 1,
+                    }}
+                  >
+                    <AuthorGlyph author={author.id} className="h-16 w-16 sm:h-20 sm:w-20" />
                   </span>
-                  <span className="font-display text-lg text-mora-brown-800">{author.label}</span>
-                </label>
-              ))}
-            </fieldset>
+                  <span className="font-display text-2xl font-semibold text-ink-800">{author.label}</span>
+                </button>
+              );
+            })}
+          </div>
 
-            <button type="submit" className="mora-btn-primary mt-8 w-full">
-              Enter
-            </button>
-          </form>
+          <p className="mt-10 font-body text-[13px] text-ink-400">You can switch anytime from the top bar.</p>
         </div>
       ) : (
         children

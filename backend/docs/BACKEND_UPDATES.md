@@ -2,6 +2,54 @@
 
 Changelog of backend changes for the frontend (Cursor) side to stay in sync. Newest first.
 
+## 2026-10-02 — Paging for My letters and Inbox
+
+`GET /letters` (my letters, with stats) and `GET /inbox` now accept optional `?limit=&offset=`.
+- No `limit`: unchanged, the full plain array as before. This is backward compatible.
+- With `limit`, the response is an object: `{ items, total, limit, offset }`. `items` is the page (same item shape as before) and `total` is the count of all matching letters. Page count is `ceil(total / limit)`.
+- `limit`: 1–100 (values above 100 are capped). `offset`: 0 or more, default 0.
+- Order is newest first with `id` as a tiebreak, so pages never overlap or skip.
+- Invalid values return `400 { error }`: `limit must be a positive integer` or `offset must be 0 or more`.
+- The Inbox header count should keep using `GET /inbox/unread-count`, because a page only holds part of the list.
+
+The frontend uses this for numbered pages (15 per page, `?page=` in the URL) through `frontend/lib/usePagination.ts` and `frontend/components/Pager.tsx`. If an older backend ignores `limit` and returns the whole array, the hook pages it on the client, so it works in either deploy order.
+
+## 2026-10-02 — Milestones (countdown / count-up to important moments)
+
+Shared between both roles (like `/plans`): moon and sun see the same list, and either can edit or delete any milestone. `created_by` records who added it.
+
+### New endpoints (mounted under `/api`, all require `x-author: moon|sun`)
+- `GET /milestones` — list, sorted by `at` ascending.
+- `GET /milestones/:id` — one milestone, or `404`.
+- `POST /milestones` — body `{ title: string, mode?: 'countdown' | 'countup', at: string }`. `mode` defaults to `'countdown'`. `at` is any `Date`-parseable string. Send a full ISO string with an offset (for example `2026-12-24T19:00:00+07:00`) so the local time is preserved. A bare `2025-02-14` is read as UTC midnight. Returns `201` + the milestone.
+- `PUT /milestones/:id` — full replace of `{ title, mode, at }` (same validation as POST; send all three). Returns the updated milestone or `404`.
+- `DELETE /milestones/:id` — `{ ok: true }` or `404`.
+
+Validation errors return `400 { error }`: `title required`, `mode must be countdown or countup`, `at required`, `Invalid at`.
+
+### Response shape
+```ts
+type Milestone = {
+  id: string;
+  title: string;
+  mode: 'countdown' | 'countup';
+  at: string;          // ISO UTC — target moment (countdown) or start moment (countup)
+  created_by: 'moon' | 'sun';
+  created_at: string;
+  updated_at: string;
+};
+```
+
+### Meaning of `mode` (the frontend does the ticking)
+- `countdown`: show time remaining until `at`, e.g. "còn 83 ngày 4 giờ". After `at` has passed, the FE decides what to show (for example "đã tới!" or switching to elapsed time).
+- `countup`: show time elapsed since `at`, e.g. "đã 595 ngày".
+- The server returns no computed remaining or elapsed values. Compute them client-side from `at` and `Date.now()` on a timer.
+
+### Schema
+New `milestones` table (`id, title, mode, at, created_by, created_at, updated_at`). It is created automatically on the next deploy by the existing `init()`, with no manual migration. The local JSON store gets a `milestones` array.
+
+No push notifications for milestones yet.
+
 ## 2026-09-19 — Role rename: fox → sun
 
 The second author role is renamed from `fox` to `sun` everywhere:

@@ -4,10 +4,10 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { apiFetch, TEMPLATES, type Letter, type TemplateId } from '@/lib/api';
-import { MoraHero, SiteShell } from '@/components/SiteShell';
-import { BookLoader } from '@/components/BookLoader';
+import { PageHero, SiteShell } from '@/components/SiteShell';
+import { AuthorGlyph, OrbitLoader } from '@/components/brand';
 import { useIdentity } from '@/components/IdentityGate';
-import { authorEmoji, authorLabel } from '@/lib/identity';
+import { authorLabel } from '@/lib/identity';
 
 function ComposeForm() {
   const { identity } = useIdentity();
@@ -50,7 +50,7 @@ function ComposeForm() {
       setTitle('');
       setContent('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send letter');
+      setError(err instanceof Error ? err.message : 'The letter could not be sent. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -59,109 +59,102 @@ function ComposeForm() {
   return (
     <>
       {result && (
-        <div className="mora-card animate-fade-in-up mb-8 border-mora-beige-200">
-          <span className="mora-badge mb-4">Letter saved</span>
-          <p className="font-display mb-4 text-lg font-medium text-mora-brown-800">
-            Your letter has been sealed & saved
-          </p>
-          <div className="space-y-2 font-body text-sm text-mora-brown-600">
-            <p>
-              Letter link:{' '}
-              <a href={result.url} className="text-mora-brown-700 underline" target="_blank" rel="noreferrer">
-                {result.url}
-              </a>
-            </p>
-            <p>
-              QR page:{' '}
-              <a href={result.qrUrl} className="text-mora-brown-700 underline" target="_blank" rel="noreferrer">
-                {result.qrUrl}
-              </a>
+        <div className="glass-card animate-fade-in-up mb-6 flex flex-col gap-5 sm:flex-row sm:items-center">
+          <div className="flex-1">
+            <p className="font-display text-2xl font-semibold text-ink-800">Sealed and sent</p>
+            <p className="mt-1 font-body text-[15px] text-ink-500">
+              It's waiting in their inbox. Share the link or print the QR code to hand it over in person.
             </p>
           </div>
-          <Link href={`/qr/${result.id}`} className="mora-btn-primary mt-5 inline-flex">
-            Print QR Code
-          </Link>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              className="btn"
+              onClick={() => navigator.clipboard?.writeText(result.url).catch(() => {})}
+            >
+              Copy link
+            </button>
+            <Link href={`/qr/${result.id}`} className="btn-primary">
+              Print QR
+            </Link>
+          </div>
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mora-card space-y-6">
-        <div>
-          <h2 className="font-display mb-1 text-xl font-semibold text-mora-brown-800">
-            {replyParent ? 'Reply' : 'Compose'}
-          </h2>
-          <p className="font-body text-sm text-mora-brown-500">
-            Writing as {identity ? `${authorEmoji(identity)} ${authorLabel(identity)}` : '…'}
-          </p>
-          {replyParent && (
-            <p className="font-body mt-2 text-sm italic text-mora-brown-500">
-              ↳ Replying to{' '}
-              <Link href={`/letter/${replyParent.id}`} className="underline hover:text-mora-brown-700">
-                {replyParent.title}
-              </Link>
-              {' · '}
-              <Link href="/" className="underline hover:text-mora-brown-700">
-                Cancel
-              </Link>
+      <form onSubmit={handleSubmit} className="glass-card space-y-7">
+        <div className="flex items-center gap-3">
+          {identity && <AuthorGlyph author={identity} className="h-9 w-9" />}
+          <div>
+            <p className="font-body text-[15px] font-semibold text-ink-800">
+              {replyParent ? 'Writing back' : 'New letter'}
+              {identity && <span className="font-normal text-ink-500"> as {authorLabel(identity)}</span>}
             </p>
-          )}
-        </div>
-
-        <div>
-          <label className="mb-3 block font-body text-sm font-medium text-mora-brown-600">
-            Choose Paper
-          </label>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTemplate(t.id)}
-                className={`overflow-hidden rounded-2xl border-2 transition ${
-                  template === t.id
-                    ? 'border-mora-brown-500 shadow-soft'
-                    : 'border-mora-beige-200 opacity-80 hover:opacity-100'
-                }`}
-              >
-                <div
-                  className="h-28 bg-cover bg-center"
-                  style={{ backgroundImage: `url(${t.background})` }}
-                />
-                <p className="bg-mora-beige-50 px-4 py-3 font-body text-sm text-mora-brown-700">
-                  {t.name}
-                </p>
-              </button>
-            ))}
+            {replyParent && (
+              <p className="font-body text-[13px] text-ink-500">
+                To{' '}
+                <Link href={`/letter/${replyParent.id}`} className="underline decoration-ink-300 underline-offset-2">
+                  {replyParent.title}
+                </Link>
+                {' · '}
+                <Link href="/" className="text-ink-600 underline decoration-ink-300 underline-offset-2">
+                  Cancel
+                </Link>
+              </p>
+            )}
           </div>
         </div>
 
-        <div>
-          <label className="mb-2 block font-body text-sm font-medium text-mora-brown-600">Title</label>
+        <fieldset>
+          <legend className="mb-3 font-body text-[13px] font-semibold text-ink-500">Paper</legend>
+          <div className="grid grid-cols-3 gap-3">
+            {TEMPLATES.map((t) => {
+              const active = template === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTemplate(t.id)}
+                  aria-pressed={active}
+                  className={`group relative overflow-hidden rounded-2xl transition-transform duration-500 ease-spring active:scale-95 ${
+                    active ? 'scale-[1.02] ring-2 ring-ink-800 ring-offset-2 ring-offset-white/0' : 'opacity-80 hover:opacity-100'
+                  }`}
+                >
+                  <div className="aspect-[4/5] bg-cover bg-center sm:aspect-[4/3]" style={{ backgroundImage: `url(${t.background})` }} />
+                  <span className="glass absolute inset-x-1.5 bottom-1.5 truncate rounded-xl px-2 py-1 text-center font-body text-[12px] font-semibold text-ink-800">
+                    {t.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <label className="block">
+          <span className="mb-2 block font-body text-[13px] font-semibold text-ink-500">Title</span>
           <input
-            className="mora-input"
-            placeholder="To my dearest..."
+            className="field font-letter"
+            placeholder="To my dearest…"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             required
           />
-        </div>
+        </label>
 
-        <div>
-          <label className="mb-2 block font-body text-sm font-medium text-mora-brown-600">
-            Letter Body
-          </label>
+        <label className="block">
+          <span className="mb-2 block font-body text-[13px] font-semibold text-ink-500">Letter</span>
           <textarea
-            className="mora-textarea"
-            placeholder="Write from your heart..."
+            className="field-area font-letter leading-[1.8]"
+            placeholder="Write from your heart…"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             required
           />
-        </div>
+        </label>
 
-        {error && <p className="font-body text-sm text-red-700">{error}</p>}
+        {error && <p className="font-body text-[14px] text-rose">{error}</p>}
 
-        <button type="submit" className="mora-btn-primary w-full sm:w-auto" disabled={loading}>
-          {loading ? 'Sealing...' : replyParent ? 'Seal & Reply' : 'Seal & Send'}
+        <button type="submit" className="btn-primary w-full sm:w-auto sm:px-8" disabled={loading}>
+          {loading ? 'Sealing…' : replyParent ? 'Seal and send reply' : 'Seal and send'}
         </button>
       </form>
     </>
@@ -171,14 +164,13 @@ function ComposeForm() {
 export default function HomePage() {
   return (
     <SiteShell>
-      <MoraHero
-        title="The Letterbook"
-        subtitle="Slow down, choose your paper, and write each word with care — just like a craftsman shaping something precious."
-        image={TEMPLATES[0].background}
+      <PageHero
+        title="Write to the other half of your sky"
+        subtitle="Pick a paper, take your time, and seal it. They'll open it like a real envelope."
       />
 
-      <section className="mx-auto max-w-3xl px-5 pb-20 sm:px-8">
-        <Suspense fallback={<BookLoader label="Loading…" />}>
+      <section className="mx-auto max-w-3xl px-4 sm:px-8">
+        <Suspense fallback={<OrbitLoader label="Loading…" />}>
           <ComposeForm />
         </Suspense>
       </section>

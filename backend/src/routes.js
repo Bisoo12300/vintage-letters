@@ -6,6 +6,22 @@ import { otherAuthor, sendPushToAuthor } from './push.js';
 
 const router = Router();
 
+const MAX_PAGE = 100;
+
+/**
+ * Optional ?limit=&offset= paging. Returns null when no limit is given so the
+ * endpoint keeps returning the full array (backward compatible); with a limit
+ * the endpoint returns { items, total, limit, offset }.
+ */
+function parsePage(query) {
+  if (query.limit === undefined) return null;
+  const limit = Number.parseInt(query.limit, 10);
+  const offset = Number.parseInt(query.offset ?? '0', 10);
+  if (!Number.isFinite(limit) || limit < 1) return { error: 'limit must be a positive integer' };
+  if (!Number.isFinite(offset) || offset < 0) return { error: 'offset must be 0 or more' };
+  return { limit: Math.min(limit, MAX_PAGE), offset };
+}
+
 function frontendBase() {
   let url = (process.env.FRONTEND_URL || 'http://localhost:3000').trim().split(',')[0].trim().replace(/\/$/, '');
   if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
@@ -75,7 +91,15 @@ router.post('/letters', requireAuthor, async (req, res) => {
 
 /** My letters — only current role */
 router.get('/letters', requireAuthor, async (req, res) => {
-  res.json(await getDb().allLettersWithStats(req.author));
+  const page = parsePage(req.query);
+  if (page?.error) return res.status(400).json({ error: page.error });
+  const db = getDb();
+  if (!page) return res.json(await db.allLettersWithStats(req.author));
+  const [items, total] = await Promise.all([
+    db.allLettersWithStats(req.author, page),
+    db.countLetters(req.author),
+  ]);
+  res.json({ items, total, limit: page.limit, offset: page.offset });
 });
 
 /** Shared timeline — both roles see all */
@@ -199,7 +223,12 @@ router.post('/letters/:id/read-end', async (req, res) => {
 
 /** Inbox — letters from the other role (unread via reading_sessions.reader) */
 router.get('/inbox', requireAuthor, async (req, res) => {
-  res.json(await getDb().getInbox(req.author));
+  const page = parsePage(req.query);
+  if (page?.error) return res.status(400).json({ error: page.error });
+  const db = getDb();
+  if (!page) return res.json(await db.getInbox(req.author));
+  const [items, total] = await Promise.all([db.getInbox(req.author, page), db.countInbox(req.author)]);
+  res.json({ items, total, limit: page.limit, offset: page.offset });
 });
 
 router.get('/inbox/unread-count', requireAuthor, async (req, res) => {
@@ -336,6 +365,63 @@ router.post('/plans/:id/decline', requireAuthor, async (req, res) => {
 router.delete('/plans/:id', requireAuthor, async (req, res) => {
   const deleted = await getDb().deletePlan(req.params.id);
   if (!deleted) return res.status(404).json({ error: 'Plan not found' });
+  res.json({ ok: true });
+});
+
+/** Shared milestones — count down to (or count up from) an important moment */
+const MILESTONE_MODES = ['countdown', 'countup'];
+
+function parseMilestoneInput(body) {
+  const { title, mode = 'countdown', at } = body || {};
+  if (!title?.trim()) return { error: 'title required' };
+  if (!MILESTONE_MODES.includes(mode)) return { error: 'mode must be countdown or countup' };
+  if (!at) return { error: 'at required' };
+  const when = new Date(at);
+  if (Number.isNaN(when.getTime())) return { error: 'Invalid at' };
+  return { value: { title: title.trim(), mode, at: when.toISOString() } };
+}
+
+router.get('/milestones', requireAuthor, async (_req, res) => {
+  res.json(await getDb().getMilestones());
+});
+
+router.get('/milestones/:id', requireAuthor, async (req, res) => {
+  const milestone = await getDb().getMilestone(req.params.id);
+  if (!milestone) return res.status(404).json({ error: 'Milestone not found' });
+  res.json(milestone);
+});
+
+router.post('/milestones', requireAuthor, async (req, res) => {
+  const parsed = parseMilestoneInput(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+  const now = new Date().toISOString();
+  const milestone = {
+    id: uuidv4(),
+    ...parsed.value,
+    created_by: req.author,
+    created_at: now,
+    updated_at: now,
+  };
+  await getDb().insertMilestone(milestone);
+  res.status(201).json(milestone);
+});
+
+router.put('/milestones/:id', requireAuthor, async (req, res) => {
+  const parsed = parseMilestoneInput(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+  const milestone = await getDb().updateMilestone(req.params.id, {
+    ...parsed.value,
+    updated_at: new Date().toISOString(),
+  });
+  if (!milestone) return res.status(404).json({ error: 'Milestone not found' });
+  res.json(milestone);
+});
+
+router.delete('/milestones/:id', requireAuthor, async (req, res) => {
+  const deleted = await getDb().deleteMilestone(req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'Milestone not found' });
   res.json({ ok: true });
 });
 

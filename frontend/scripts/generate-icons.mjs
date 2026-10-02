@@ -14,13 +14,12 @@ async function main() {
   await sharp(svg).resize(192, 192).png().toFile(join(outDir, 'icon-192.png'));
   await sharp(svg).resize(512, 512).png().toFile(join(outDir, 'icon-512.png'));
 
-  const inner = await sharp(svg).resize(360, 360).png().toBuffer();
-  await sharp({
-    create: { width: 512, height: 512, channels: 4, background: '#FAF8F4' },
-  })
-    .composite([{ input: inner, gravity: 'center' }])
-    .png()
-    .toFile(join(outDir, 'icon-512-maskable.png'));
+  // Maskable: full-bleed sky (no rounded corners) so the OS mask never shows a seam;
+  // the heart already sits inside the 80% safe zone.
+  const fullBleed = readFileSync(join(__dirname, '..', 'app', 'apple-icon.svg'));
+  await sharp(fullBleed).resize(512, 512).png().toFile(join(outDir, 'icon-512-maskable.png'));
+  // Next.js only picks up apple-icon as png/jpg — iOS rounds the corners itself.
+  await sharp(fullBleed).resize(180, 180).png().toFile(join(__dirname, '..', 'app', 'apple-icon.png'));
 
   console.log('Generated PWA icons in', outDir);
 }

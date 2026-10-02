@@ -1,9 +1,9 @@
-import { BookLoader } from '@/components/BookLoader';
+import { OrbitLoader } from '@/components/brand';
 
 export default function Loading() {
   return (
-    <div className="flex min-h-[50vh] items-center justify-center bg-mora-cream py-16">
-      <BookLoader />
+    <div className="flex min-h-[50vh] items-center justify-center py-16">
+      <OrbitLoader />
     </div>
   );
 }
