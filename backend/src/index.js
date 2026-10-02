@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import { initDb, getDb } from './db.js';
 import routes from './routes.js';
+import { startReminderScheduler } from './reminders.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -57,4 +58,5 @@ await initDb();
 app.listen(PORT, () => {
   const db = getDb();
   console.log(`Vintage Letters API on :${PORT} [${db.kind}] roles=moon|sun`);
+  startReminderScheduler(db);
 });

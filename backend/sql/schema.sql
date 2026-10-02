@@ -63,6 +63,13 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subs_endpoint ON push_subscriptions(endpoint);
 CREATE INDEX IF NOT EXISTS idx_push_subs_author ON push_subscriptions(author);
 
+-- One row per reminder already pushed (dedupe across restarts and instances).
+-- key = <plan|moment>:<id>:<7d|1d>:<target ISO>, so a rescheduled event gets fresh reminders.
+CREATE TABLE IF NOT EXISTS reminders_sent (
+  key TEXT PRIMARY KEY,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Role rename: fox -> sun (idempotent, no-op once migrated)
 UPDATE letters SET author = 'sun' WHERE author = 'fox';
 UPDATE reading_sessions SET reader = 'sun' WHERE reader = 'fox';

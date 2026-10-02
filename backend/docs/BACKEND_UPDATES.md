@@ -2,6 +2,28 @@
 
 Changelog of backend changes for the frontend (Cursor) side to stay in sync. Newest first.
 
+## 2026-10-02 — Reminder pushes for plans and moments
+
+The backend now sends push reminders to both moon and sun **1 week** and **1 day** before:
+- **Plans** that are pending or accepted (declined plans are skipped). Reminders go out 7 days and 24 hours before `starts_at`. Pending plans add "still waiting for a yes".
+- **Moments:** a countdown is reminded before its target date; a count-up before each yearly anniversary ("1 year on Mon, Sep 6"). Moments are all-day, so reminders go out at **9:00 local** (`REMINDER_TIMEZONE`, default `Asia/Ho_Chi_Minh`) 7 days and 1 day before.
+- A plan created after a stage's time doesn't get that stage. For example, a plan made 3 days ahead gets only the 1-day reminder.
+- If the server was asleep, it catches up on the next run. Only the current stage is sent, never both at once.
+
+### Push payload (same shape as existing pushes)
+`{ title, body, url, unreadCount, tag }`. Titles are `In a week: <name>` or `Tomorrow: <name>`. `url` is `/plans?date=YYYY-MM-DD` for plans and `/milestones` for moments. `tag` is unique per event and stage; `public/sw.js` now passes it to `showNotification` so a repeat replaces the existing notification instead of stacking.
+
+### How it runs
+- In-process scheduler every 15 min (`REMINDER_INTERVAL_MS`). It is **off unless `REMINDERS_ENABLED=1`**, so local dev servers pointed at the real database never push to real phones.
+- `POST /api/cron/reminders` with header `x-cron-secret: $CRON_SECRET` runs one pass and returns `{ ok, sent: [keys] }`. Use it from an external cron, because Render's free plan sleeps when idle. It returns 404 when `CRON_SECRET` isn't set and 401 for a wrong secret.
+- Dedupe: new table `reminders_sent(key, sent_at)`, created automatically on deploy. Each reminder is claimed with `INSERT … ON CONFLICT DO NOTHING`, so restarts or multiple instances never double-send. A rescheduled event gets fresh reminders, because the key includes the target time.
+- Nothing is sent, and nothing is marked sent, when the VAPID keys are missing.
+
+### New env vars
+`REMINDERS_ENABLED=1`, `CRON_SECRET` (secret), and optionally `REMINDER_TIMEZONE` and `REMINDER_INTERVAL_MS`.
+
+No frontend changes are needed beyond the `sw.js` tag line, which is already done.
+
 ## 2026-10-02 — Paging for My letters and Inbox
 
 `GET /letters` (my letters, with stats) and `GET /inbox` now accept optional `?limit=&offset=`.

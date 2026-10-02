@@ -22,6 +22,8 @@ self.addEventListener('push', (event) => {
       await self.registration.showNotification(title, {
         body: data.body || '',
         icon: '/icons/icon-192.png',
+        // Same tag replaces instead of stacking (e.g. one reminder per event/stage)
+        ...(data.tag ? { tag: data.tag } : {}),
         data: { url },
       });
 

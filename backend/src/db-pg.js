@@ -307,6 +307,15 @@ export async function createPgDb(connectionString) {
       return rowCount > 0;
     },
 
+    /** Atomically claim a reminder key; false when it was already sent. */
+    async claimReminder(key) {
+      const { rowCount } = await pool.query(
+        'INSERT INTO reminders_sent (key) VALUES ($1) ON CONFLICT (key) DO NOTHING',
+        [key]
+      );
+      return rowCount === 1;
+    },
+
     async insertPushSubscription(sub) {
       await pool.query(
         `INSERT INTO push_subscriptions (id, author, endpoint, p256dh, auth, user_agent, created_at)

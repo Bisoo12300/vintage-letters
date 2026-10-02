@@ -14,6 +14,11 @@ function ensureConfigured() {
   return true;
 }
 
+/** True when VAPID keys are set and pushes can actually be delivered. */
+export function isPushConfigured() {
+  return ensureConfigured();
+}
+
 export function otherAuthor(author) {
   return author === 'moon' ? 'sun' : 'moon';
 }

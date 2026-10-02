@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './db.js';
 import { AUTHORS, assertOwnLetter, requireAuthor } from './auth.js';
 import { otherAuthor, sendPushToAuthor } from './push.js';
+import { runReminders } from './reminders.js';
 
 const router = Router();
 
@@ -423,6 +424,22 @@ router.delete('/milestones/:id', requireAuthor, async (req, res) => {
   const deleted = await getDb().deleteMilestone(req.params.id);
   if (!deleted) return res.status(404).json({ error: 'Milestone not found' });
   res.json({ ok: true });
+});
+
+/**
+ * External cron trigger for reminder pushes — for hosts that sleep when idle.
+ * Requires CRON_SECRET; send it as the x-cron-secret header. Safe to call often (deduped).
+ */
+router.post('/cron/reminders', async (req, res) => {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) return res.status(404).json({ error: 'Not found' });
+  if (req.headers['x-cron-secret'] !== secret) return res.status(401).json({ error: 'Invalid cron secret' });
+  try {
+    const sent = await runReminders(getDb());
+    res.json({ ok: true, sent });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

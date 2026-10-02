@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataPath = path.join(__dirname, '..', 'data', 'store.json');
-const defaultStore = { letters: [], reading_sessions: [], date_plans: [], milestones: [], push_subscriptions: [] };
+const defaultStore = { letters: [], reading_sessions: [], date_plans: [], milestones: [], push_subscriptions: [], reminders_sent: [] };
 
 function load() {
   fs.mkdirSync(path.dirname(dataPath), { recursive: true });
@@ -17,6 +17,7 @@ function load() {
   if (!data.date_plans) data.date_plans = [];
   if (!data.milestones) data.milestones = [];
   if (!data.push_subscriptions) data.push_subscriptions = [];
+  if (!data.reminders_sent) data.reminders_sent = [];
   return data;
 }
 
@@ -229,6 +230,13 @@ export function createJsonDb() {
       store.milestones = store.milestones.filter((m) => m.id !== id);
       save(store);
       return store.milestones.length < before;
+    },
+
+    async claimReminder(key) {
+      if (store.reminders_sent.some((r) => r.key === key)) return false;
+      store.reminders_sent.push({ key, sent_at: new Date().toISOString() });
+      save(store);
+      return true;
     },
 
     async insertPushSubscription(sub) {

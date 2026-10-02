@@ -25,3 +25,11 @@ services:
         sync: false
       - key: VAPID_SUBJECT
         sync: false
+      # Reminder pushes (1 week / 1 day before plans and moments)
+      - key: REMINDERS_ENABLED
+        value: "1"
+      - key: REMINDER_TIMEZONE
+        value: Asia/Ho_Chi_Minh
+      # Free plan sleeps when idle — an external cron should POST /api/cron/reminders with this as x-cron-secret
+      - key: CRON_SECRET
+        sync: false
