@@ -11,7 +11,7 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     env:
-      API_URL: ${{ vars.API_URL || 'https://vintage-letters-api.onrender.com' }}
+      API_URL: ${{ vars.API_URL || 'https://vintage-letters-ugvr.onrender.com' }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
     steps:
       - name: Wake server

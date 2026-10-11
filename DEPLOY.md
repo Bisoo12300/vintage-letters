@@ -51,7 +51,7 @@ App này dùng **Neon PostgreSQL** (miễn phí) cho production. Local dev vẫn
    | `FRONTEND_URL` | URL Vercel (bước 3, cập nhật sau cũng được) |
 
 6. **Create Web Service** → đợi deploy xong  
-   URL backend: `https://vintage-letters-api.onrender.com`
+   URL backend: `https://vintage-letters-ugvr.onrender.com`
 
 7. Kiểm tra: mở `https://YOUR-API.onrender.com/api/health`  
    Kết quả mong đợi: `{"ok":true,"db":"postgres"}`
