@@ -1,10 +1,10 @@
-# Render free plan sleeps after ~15 min idle. Ping every 15 min to keep it awake
+# Render free plan sleeps after ~15 min idle. Ping every 10 min to keep it awake
 # and run the reminder pass. GitHub may delay scheduled runs by a few minutes.
 name: Keep Render awake
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
