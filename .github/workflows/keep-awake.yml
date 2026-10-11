@@ -18,4 +18,5 @@ jobs:
         run: curl -fsS --retry 5 --retry-delay 10 --retry-all-errors --max-time 90 "$API_URL/api/health"
       - name: Run reminders
         if: env.CRON_SECRET != ''
-        run: curl -fsS --max-time 90 -X POST -H "x-cron-secret: $CRON_SECRET" "$API_URL/api/cron/reminders"
+        run: |
+          curl -fsS --max-time 90 -X POST -H "x-cron-secret: $CRON_SECRET" "$API_URL/api/cron/reminders"
