@@ -382,6 +382,53 @@ function parseMilestoneInput(body) {
   return { value: { title: title.trim(), mode, at: when.toISOString() } };
 }
 
+
+const holidayCache = new Map(); // year -> [{ date, name }]; holidays rarely change, so cache until restart
+const lunarFmt = new Intl.DateTimeFormat('en-u-ca-chinese', {
+  timeZone: 'Asia/Ho_Chi_Minh',
+  month: 'numeric',
+  day: 'numeric',
+});
+
+/** Lunar holidays (Tết, Giỗ Tổ) — Nager.Date doesn't list them for VN, so derive them from the lunar calendar. */
+function lunarHolidays(year) {
+  const out = [];
+  const day = new Date(`${year}-01-01T12:00:00+07:00`);
+  for (; day.getUTCFullYear() === year; day.setUTCDate(day.getUTCDate() + 1)) {
+    const [m, , d] = lunarFmt.formatToParts(day).map((p) => p.value); // "month/day"; leap months look like "3bis"
+    const date = day.toISOString().slice(0, 10);
+    if (m === '1' && Number(d) <= 3) out.push({ date, name: `Tết Nguyên Đán (mùng ${d})` });
+    else if (m === '3' && d === '10') out.push({ date, name: 'Giỗ Tổ Hùng Vương' });
+    else if (m === '12' && Number(d) >= 29) {
+      // 30 Tết = the day right before mùng 1 (the last day of month 12 is the 29th or 30th)
+      const next = new Date(day.getTime() + 86400000);
+      if (lunarFmt.formatToParts(next).map((p) => p.value).join('') === '1/1') out.push({ date, name: 'Tết Nguyên Đán (30 Tết)' });
+    }
+  }
+  return out;
+}
+
+async function fetchHolidays(year) {
+  const resp = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/VN`);
+  if (!resp.ok) throw new Error(`Nager.Date ${resp.status}`);
+  const solar = (await resp.json()).map((h) => ({ date: h.date, name: h.localName }));
+  return [...solar, ...lunarHolidays(year)].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+router.get('/holidays', requireAuthor, async (req, res) => {
+  const year = Number.parseInt(req.query.year, 10);
+  if (!Number.isFinite(year) || year < 2000 || year > 2100) {
+    return res.status(400).json({ error: 'year must be between 2000 and 2100' });
+  }
+  try {
+    if (!holidayCache.has(year)) holidayCache.set(year, await fetchHolidays(year));
+    res.json(holidayCache.get(year));
+  } catch (err) {
+    console.error('holidays', err.message);
+    res.status(502).json({ error: 'Could not load holidays' });
+  }
+});
+
 router.get('/milestones', requireAuthor, async (_req, res) => {
   res.json(await getDb().getMilestones());
 });

@@ -2,6 +2,18 @@
 
 Changelog of backend changes for the frontend (Cursor) side to stay in sync. Newest first.
 
+## 2026-10-21 — Vietnamese public holidays on the Plans calendar
+
+New `GET /api/holidays?year=YYYY` (requires the author header like other routes). It returns `[{ date: "YYYY-MM-DD", name: "Quốc khánh" }]`, one row per day, with multi-day holidays such as Tết expanded.
+- Solar holidays come from Nager.Date (`date.nager.at/api/v3/PublicHolidays/{year}/VN`, free, no key), with Vietnamese names. It lacks Tết and Giỗ Tổ for VN, so the backend derives those from the lunar calendar (`Intl`, Vietnam timezone): 30 Tết and mùng 1–3, plus 10/3 âm. Cached in memory per year until the server restarts.
+- Invalid `year` (outside 2000–2100) returns `400`. A Nager failure returns `502 { error }`.
+- Note: compensatory days off (nghỉ bù) and Rằm or Trung thu are not included.
+
+### Frontend
+`frontend/app/plans/page.tsx` fetches the years in view, tints holiday days in both mini months (name in the tooltip) and shows the holiday name under the day number in the week header. Errors are ignored.
+
+No new env vars.
+
 ## 2026-10-02 — Reminder pushes for plans and moments
 
 The backend now sends push reminders to both moon and sun **1 week** and **1 day** before:

@@ -61,6 +61,11 @@ function toDatetimeLocalValue(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function dateKey(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function formatHour(h: number) {
   if (h === 0) return '12 AM';
   if (h < 12) return `${h} AM`;
@@ -104,6 +109,7 @@ function MiniMonth({
   onNext,
   showNav,
   marked,
+  holiday,
 }: {
   year: number;
   month: number;
@@ -111,6 +117,8 @@ function MiniMonth({
   today: Date;
   /** Days that get a dot (days with a moment) */
   marked?: (d: Date) => boolean;
+  /** Holiday name for a day, if any (tinted + tooltip) */
+  holiday?: (d: Date) => string | undefined;
   onSelect: (d: Date) => void;
   onPrev?: () => void;
   onNext?: () => void;
@@ -151,19 +159,23 @@ function MiniMonth({
           const inMonth = day.getMonth() === month;
           const isSelected = sameDay(day, selected);
           const isToday = sameDay(day, today);
+          const holidayName = holiday?.(day);
           return (
             <button
               key={day.toISOString()}
               type="button"
+              title={holidayName}
               onClick={() => onSelect(day)}
               className={`relative mx-auto flex h-7 w-7 items-center justify-center rounded-full transition ${
                 isSelected
                   ? 'bg-ink-800 font-semibold text-white'
                   : isToday
                     ? 'bg-white/80 font-semibold text-ink-800'
-                    : inMonth
-                      ? 'text-ink-700 hover:bg-white/60'
-                      : 'text-ink-300'
+                    : holidayName
+                      ? 'bg-rose-soft/70 font-semibold text-ink-800'
+                      : inMonth
+                        ? 'text-ink-700 hover:bg-white/60'
+                        : 'text-ink-300'
               }`}
             >
               {day.getDate()}
@@ -233,6 +245,21 @@ function PlansView() {
     setPlans(data);
     setMilestones(moments);
   }, [identity]);
+
+  // Vietnamese public holidays (date key -> name). Decoration only — failures are ignored.
+  const [holidays, setHolidays] = useState<Record<string, string>>({});
+  const holidayYearsKey = [
+    ...new Set([weekStart.getFullYear(), addDays(weekStart, 6).getFullYear(), miniMonth.y, miniMonth.m === 11 ? miniMonth.y + 1 : miniMonth.y]),
+  ].join(',');
+  useEffect(() => {
+    if (!identity) return;
+    holidayYearsKey.split(',').forEach((y) => {
+      apiFetch<{ date: string; name: string }[]>(`/holidays?year=${y}`, { author: identity })
+        .then((list) => setHolidays((prev) => ({ ...prev, ...Object.fromEntries(list.map((h) => [h.date, h.name])) })))
+        .catch(() => {});
+    });
+  }, [identity, holidayYearsKey]);
+  const holidayOn = useCallback((d: Date) => holidays[dateKey(d)], [holidays]);
 
   const hasMoment = useCallback((d: Date) => momentsOnDay(d, milestones).length > 0, [milestones]);
   const weekMoments = useMemo(() => days.map((d) => momentsOnDay(d, milestones)), [days, milestones]);
@@ -331,6 +358,7 @@ function PlansView() {
             today={today}
             showNav
             marked={hasMoment}
+            holiday={holidayOn}
             onSelect={(d) => {
               setAnchor(d);
               setMiniMonth({ y: d.getFullYear(), m: d.getMonth() });
@@ -353,6 +381,7 @@ function PlansView() {
               selected={anchor}
               today={today}
               marked={hasMoment}
+              holiday={holidayOn}
               onSelect={(d) => {
                 setAnchor(d);
                 setMiniMonth({ y: d.getFullYear(), m: d.getMonth() });
@@ -455,6 +484,14 @@ function PlansView() {
                         >
                           {day.getDate()}
                         </div>
+                        {holidayOn(day) && (
+                          <div
+                            title={holidayOn(day)}
+                            className="mt-1 truncate rounded bg-rose-soft/70 px-1 text-[10px] font-semibold text-ink-800"
+                          >
+                            {holidayOn(day)}
+                          </div>
+                        )}
                       </button>
                     );
                   })}
