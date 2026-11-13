@@ -1,0 +1,13 @@
+Fonts used in this design:
+
+Font: Intro Rust
+Author: Fontfabric
+Url: http://www.fontsquirrel.com/fonts/intro-rust
+
+Font: Nickainley
+Author: Fontfabric
+Url: https://www.fontsquirrel.com/fonts/nickainley
+
+Font: Built Titling
+Author: Typodermic
+Url: https://www.fontsquirrel.com/fonts/built-titling
