@@ -1,7 +1,32 @@
 import Link from 'next/link';
-import { TEMPLATES } from '@/lib/api';
+import { findTemplate, paperSheetStyle, type PaperView } from '@/lib/papers';
 import { authorLabel } from '@/lib/identity';
 import { AuthorGlyph, LogoMark } from '@/components/brand';
+
+/**
+ * A sheet of the chosen paper. Children are laid out on the blank part of the
+ * artwork, never over its decoration. `view` picks a miniature framing: `fit`
+ * for thumbnails, `paper` for the letter inside the envelope.
+ */
+export function PaperSheet({
+  template,
+  view,
+  className = '',
+  children,
+}: {
+  template: string;
+  view?: PaperView;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={`paper-wrap ${className}`}>
+      <div className="paper-sheet" style={paperSheetStyle(findTemplate(template), view)}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 interface LetterPaperProps {
   template: string;
@@ -22,21 +47,15 @@ export function LetterPaper({
   replyToTitle,
   children,
 }: LetterPaperProps) {
-  const tpl = TEMPLATES.find((t) => t.id === template) || TEMPLATES[0];
+  const tpl = findTemplate(template);
+  const ruled = tpl.kind === 'frame' && tpl.ruled;
 
   return (
-    <article
-      className="relative mx-auto w-full max-w-2xl overflow-hidden rounded-[2rem] shadow-letter ring-1 ring-white/60"
-      style={{
-        backgroundImage: `url(${tpl.background})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
-      <div className="relative bg-paper-texture px-6 pb-12 pt-10 sm:px-14 sm:pb-16 sm:pt-14">
-        <LogoMark className="mx-auto mb-6 h-7 w-7 opacity-80" />
+    <article className="mx-auto w-full max-w-2xl">
+      <PaperSheet template={template} className="rounded-[1.5rem] shadow-letter ring-1 ring-black/5 sm:rounded-[2rem]">
+        <LogoMark className="mx-auto mb-5 h-7 w-7 opacity-80" />
 
-        <h1 className="text-balance text-center font-letter text-[1.75rem] font-semibold leading-tight text-ink-800 sm:text-[2.1rem]">
+        <h1 className="text-balance text-center font-letter text-[1.6rem] font-semibold leading-tight text-ink-800 sm:text-[2.1rem]">
           {title}
         </h1>
 
@@ -60,16 +79,18 @@ export function LetterPaper({
         )}
 
         <div
-          className="mx-auto mt-10 max-w-[34rem] whitespace-pre-wrap font-letter text-[17px] leading-[1.85] text-ink-800/90 sm:text-[18px]"
+          className={`mt-8 whitespace-pre-wrap font-letter text-[16px] leading-[1.85] text-ink-800/90 sm:mt-10 sm:text-[18px] ${
+            ruled ? 'paper-ruled' : ''
+          }`}
           style={{ textIndent: '1.5em' }}
         >
           {content}
         </div>
 
-        <p className="mt-12 text-center font-letter text-[17px] italic text-ink-500">with love</p>
+        <p className="mt-10 text-center font-letter text-[17px] italic text-ink-500">with love</p>
 
         {children}
-      </div>
+      </PaperSheet>
     </article>
   );
 }

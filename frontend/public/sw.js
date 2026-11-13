@@ -48,12 +48,16 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     (async () => {
+      // Reuse an open tab of the app and take it to the link (the link may carry a query, e.g.
+      // /pets?checkin=1); only open a new window when the app isn't open at all.
+      const target = new URL(url, self.location.origin).href;
       const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      const match = allClients.find((c) => new URL(c.url).pathname === url);
-      if (match) {
-        await match.focus();
+      const client = allClients.find((c) => new URL(c.url).origin === self.location.origin);
+      if (client) {
+        const focused = await client.focus();
+        if (focused.url !== target && 'navigate' in focused) await focused.navigate(target);
       } else {
-        await self.clients.openWindow(url);
+        await self.clients.openWindow(target);
       }
     })()
   );

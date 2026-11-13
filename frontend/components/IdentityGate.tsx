@@ -8,7 +8,7 @@ import {
   writeStoredIdentity,
   type AuthorId,
 } from '@/lib/identity';
-import { AuthorGlyph, LogoMark, OrbitLoader } from '@/components/brand';
+import { AuthorGlyph, LogoMark, PigeonLoader } from '@/components/brand';
 import { ensurePushSubscription } from '@/lib/push';
 
 const IdentityContext = createContext<{
@@ -74,7 +74,7 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <OrbitLoader />
+        <PigeonLoader />
       </div>
     );
   }
@@ -122,8 +122,6 @@ export function IdentityGate({ children }: { children: React.ReactNode }) {
               );
             })}
           </div>
-
-          <p className="mt-10 font-body text-[13px] text-ink-400">You can switch anytime from the top bar.</p>
         </div>
       ) : (
         children

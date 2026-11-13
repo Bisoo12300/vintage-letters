@@ -10,11 +10,14 @@ export function PlanModal({
   title,
   onClose,
   children,
+  className = 'max-w-md',
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  /** Width of the window on desktop */
+  className?: string;
 }) {
   const [dragY, setDragY] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -73,7 +76,7 @@ export function PlanModal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="animate-sheet-up relative z-10 w-full max-w-md"
+        className={`animate-sheet-up relative z-10 w-full ${className}`}
       >
         <div
           className="glass-thick flex max-h-[90vh] flex-col rounded-t-[2rem] sm:rounded-[2rem]"

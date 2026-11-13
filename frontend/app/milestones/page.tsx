@@ -4,7 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { SiteShell } from '@/components/SiteShell';
 import { PlanModal } from '@/components/plans/PlanModal';
-import { OrbitLoader } from '@/components/brand';
+import { PigeonLoader } from '@/components/brand';
 import { useIdentity } from '@/components/IdentityGate';
 import { apiFetch, type DatePlan, type Milestone } from '@/lib/api';
 import { toDateParam, upcomingPlans } from '@/lib/moments';
@@ -129,7 +129,7 @@ function Column({
       {items.length === 0 ? (
         <p className="glass rounded-glass-lg px-4 py-8 text-center font-body text-[14px] text-ink-400">{empty}</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="stagger space-y-3">
           {items.map((m) => (
             <li key={m.id}>
               <MomentCard m={m} onOpen={() => onOpen(m)} />
@@ -316,7 +316,7 @@ export default function MilestonesPage() {
       <div className="mx-auto max-w-4xl px-4 pt-10 sm:px-8 sm:pt-16">
         <header className="animate-fade-in-up mb-8 flex flex-wrap items-end justify-between gap-4 px-1">
           <div>
-            <h1 className="font-display text-[2.75rem] font-semibold leading-none tracking-[-0.02em] text-ink-800 sm:text-6xl">
+            <h1 className="title-shine font-display text-[2.75rem] font-semibold leading-none tracking-[-0.02em] text-ink-800 sm:text-6xl">
               Moments
             </h1>
             <p className="mt-3 font-body text-[17px] text-ink-500">Count the days since, and the days until.</p>
@@ -328,7 +328,7 @@ export default function MilestonesPage() {
 
         {loading && (
           <div className="flex justify-center py-16">
-            <OrbitLoader label="Loading moments…" />
+            <PigeonLoader label="Loading moments…" />
           </div>
         )}
         {error && <p className="mb-4 text-center font-body text-[14px] text-rose">{error}</p>}

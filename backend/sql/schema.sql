@@ -70,6 +70,34 @@ CREATE TABLE IF NOT EXISTS reminders_sent (
   sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- One cat each. location = whose house the cat is at right now ('moon' | 'sun');
+-- xp = care points that decide how grown it is (see src/pets.js).
+CREATE TABLE IF NOT EXISTS cats (
+  owner TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  born_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_fed_at TIMESTAMPTZ,
+  last_fed_by TEXT,
+  feed_count INTEGER NOT NULL DEFAULT 0,
+  xp INTEGER NOT NULL DEFAULT 0,
+  location TEXT NOT NULL
+);
+
+INSERT INTO cats (owner, name, location) VALUES ('moon', 'Luna', 'moon'), ('sun', 'Sol', 'sun')
+ON CONFLICT (owner) DO NOTHING;
+
+-- Daily mood check-ins. day = YYYY-MM-DD in REMINDER_TIMEZONE (text, so no driver date shifting).
+CREATE TABLE IF NOT EXISTS moods (
+  author TEXT NOT NULL,
+  day TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (author, day)
+);
+
+CREATE INDEX IF NOT EXISTS idx_moods_day ON moods(day);
+
 -- Role rename: fox -> sun (idempotent, no-op once migrated)
 UPDATE letters SET author = 'sun' WHERE author = 'fox';
 UPDATE reading_sessions SET reader = 'sun' WHERE reader = 'fox';

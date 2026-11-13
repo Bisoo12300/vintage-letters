@@ -2,6 +2,89 @@
 
 Changelog of backend changes for the frontend (Cursor) side to stay in sync. Newest first.
 
+## 2026-11-13 — Two cats (pets, letters by cat, daily mood check-in)
+
+Each person raises one cat: Moon's is white, Sun's is orange. All routes need the usual `x-author` header. (An earlier same-day draft used a single pigeon and `/api/pigeon*`; that was never deployed and is gone.)
+
+### New tables (created automatically by `sql/schema.sql`)
+- `cats`: one row per owner (`moon`, `sun`), seeded as `Luna` and `Sol`. Columns: `owner`, `name`, `born_at`, `last_fed_at`, `last_fed_by`, `feed_count`, `xp`, `location`.
+  - `location` is whose house the cat is at right now (`moon` or `sun`).
+  - `xp` is care points; it decides the growth stage.
+- `moods`: one row per author per day, primary key `(author, day)`. `day` is `YYYY-MM-DD` text in `REMINDER_TIMEZONE`. The other columns are `emoji`, `note` and `updated_at`.
+
+### Letters move the cats
+`POST /api/letters` now also moves a cat (the request and response are unchanged):
+- If the other person's cat is visiting the sender, that cat carries the letter home.
+- Otherwise the sender's own cat carries it to the other house, unless it is already there.
+
+### Endpoints
+All of these except `GET /pets/moods` return the **pets view** below.
+- `GET /api/pets`
+- `POST /api/pets/:owner/feed`: feed the cat owned by `:owner`.
+  - Only allowed while that cat is at **your** house, so you can feed a visitor but not your own cat while it is away: otherwise **409** `{ error }`.
+  - Also **409** while the cat is full (`canFeed: false`), and **404** for an unknown owner.
+  - Adds 2 xp. No push is sent.
+- `PUT /api/pets/name` `{ name }`: renames your own cat; 1–24 characters, otherwise 400.
+- `PUT /api/pets/mood` `{ emoji, note? }`:
+  - `emoji` must be one of the 8 in `moods`, and `note` can be up to 140 characters; otherwise 400.
+  - Sending again on the same day replaces that day's entry.
+  - The first check-in of the day adds 3 xp to your cat.
+  - After saving, it pushes to the **other** person: title `"Moon is feeling 🥰 loved today"`, body = the note, url `/pets`.
+- `GET /api/pets/moods?days=14` (1–60): both authors' check-ins, newest day first, as `[{ author, day, emoji, note, updated_at }]`.
+
+Pets view:
+```json
+{ "day": "2026-11-13", "streak": 4,
+  "today": { "moon": { "emoji": "🥰", "note": "…", … } | null, "sun": … | null },
+  "moods": [{ "emoji": "😄", "label": "Great" }, …],
+  "cats": { "moon": { "owner": "moon", "name": "Luna", "born_at": "…", "last_fed_at": "…|null",
+      "last_fed_by": "moon|sun|null", "feed_count": 3, "xp": 12, "location": "moon|sun",
+      "fullness": 0-100, "hungry": false, "canFeed": true, "asleep": false,
+      "stage": { "index": 0-3, "key": "nest|kitten|junior|adult", "label": "2 months old", "next": 30, "progress": 0-100 } },
+    "sun": { … } } }
+```
+
+How the numbers work:
+- **Growth** follows xp: `nest` from 0, `kitten` ("2 months old") from 8, `junior` ("6 months old") from 30, `adult` from 80. `stage.next` is the xp for the next stage (`null` once adult) and `stage.progress` is the percentage toward it.
+- **Fullness** drops from 100 to 0 over 24 hours after a feed. Feeding is only allowed below 75, and `hungry` is true below 25.
+- **Asleep** is true from 23:00 to 6:00 local.
+- **Streak** is the number of days in a row both of you checked in, counted up to today (or up to yesterday while today is still open).
+
+### Daily push
+From **18:00 local** until midnight, each person who hasn't checked in that day gets one push from their own cat:
+- title `"🐱 Luna is asking"`, url `/pets?checkin=1`, tag `checkin:<day>`.
+- If that cat is hungry, the body adds "…and I'm a little hungry."
+- It runs inside the existing reminder pass, so the 15-minute scheduler and `POST /api/cron/reminders` (GitHub Actions, every 5 min) both trigger it.
+- It is deduped through `reminders_sent` with the key `checkin:<day>:<author>`.
+
+### Env
+`CHECKIN_HOUR` is optional and defaults to `18` (local hour, 0–23).
+
+### Frontend
+- New tab **Pets** (`/pets`) after Moments: the two houses, each cat's mood bubble, feeding, the check-in form, and the "Put a letter in the pouch" button (opens the compose window).
+- `components/CatRoamers.tsx` (mounted in `SiteShell`) shows the cats that are at your house walking along the bottom of every tab. It refetches `GET /pets` on window focus and on the `pets:changed` window event.
+- The loading indicator is a flying pigeon carrying a letter (`PigeonLoader`).
+
+### Tests
+`node --test src/pets.test.js`
+
+## 2026-11-13 — Optional push when sending a letter
+
+`POST /api/letters` accepts a new optional body field `notify` (boolean, default `true`).
+- `notify: false` saves and returns the letter as before but **skips the "New letter from …" push** to the recipient. The letter still shows in their inbox and unread count.
+- Omitting it, or any value other than literal `false`, keeps the old behaviour (push sent).
+- Nothing is stored; there is no new column.
+
+### Frontend
+- The Write tab is gone. Letters are written in `components/ComposeWindow.tsx`, opened from **Mine → New letter** and from **Write back** on the letter page. It has a "Notify" switch that sends `notify`.
+- `/` now redirects to `/milestones`, and Moments is the first tab. Old `/?reply_to=<id>` links redirect to `/letter/<id>?reply=1`, which opens the compose window in reply mode.
+- New letter templates (ids): `moonlit-night`, `golden-sunrise`, `ruled-notebook`, `sakura`, `autumn-leaves`, `airmail`, `botanical-fern`. The backend stores `template` as free text, so no backend change is needed for them.
+
+### CI
+`.github/workflows/keep-awake.yml` now runs every 5 min (was 14).
+
+No new env vars.
+
 ## 2026-10-21 — Vietnamese public holidays on the Plans calendar
 
 New `GET /api/holidays?year=YYYY` (requires the author header like other routes). It returns `[{ date: "YYYY-MM-DD", name: "Quốc khánh" }]`, one row per day, with multi-day holidays such as Tết expanded.

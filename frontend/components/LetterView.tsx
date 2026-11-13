@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ComposeWindow } from '@/components/ComposeWindow';
 import { EnvelopeReveal } from '@/components/EnvelopeReveal';
 import { LetterPaper } from '@/components/LetterPaper';
 import { LetterTimelineDrawer } from '@/components/LetterTimelineDrawer';
 import { useReadingTracker } from '@/components/ReadingTracker';
-import { OrbitLoader } from '@/components/brand';
+import { PigeonLoader } from '@/components/brand';
 import { apiFetch, type Letter } from '@/lib/api';
 
 export function LetterView({ id }: { id: string }) {
@@ -14,11 +15,18 @@ export function LetterView({ id }: { id: string }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState(false);
+  /** True when the small letter morphed into the page, so it must not animate in again */
+  const [morphed, setMorphed] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
 
   useReadingTracker(revealed ? id : '');
 
   useEffect(() => {
-    setRevealed(false);
+    // "?reply=1" (old "/?reply_to=" links) skips the envelope and opens the reply window
+    const replying = new URLSearchParams(window.location.search).get('reply') === '1';
+    setRevealed(replying);
+    setMorphed(false);
+    setComposeOpen(replying);
     setLoading(true);
     apiFetch<Letter>(`/letters/${id}`)
       .then(setLetter)
@@ -26,10 +34,16 @@ export function LetterView({ id }: { id: string }) {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const handleRevealed = useCallback((viaMorph: boolean) => {
+    setMorphed(viaMorph);
+    setRevealed(true);
+  }, []);
+  const closeCompose = useCallback(() => setComposeOpen(false), []);
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center">
-        <OrbitLoader label="Finding your letter…" />
+        <PigeonLoader label="Finding your letter…" />
       </main>
     );
   }
@@ -38,7 +52,7 @@ export function LetterView({ id }: { id: string }) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-6 text-center">
         <p className="max-w-sm font-body text-[17px] text-ink-600">{error}</p>
-        <Link href="/" className="btn">
+        <Link href="/milestones" className="btn">
           Go home
         </Link>
       </main>
@@ -47,8 +61,10 @@ export function LetterView({ id }: { id: string }) {
 
   if (!revealed) {
     return (
-      <main className="flex min-h-screen items-center justify-center overflow-x-hidden overscroll-none px-4 py-10">
-        <EnvelopeReveal letter={letter} onRevealed={() => setRevealed(true)} />
+      // overflow-clip (not hidden): the glow behind the envelope must not add scrolling, and
+      // `hidden` would turn this into a scroll box
+      <main className="flex min-h-[100dvh] items-center justify-center overflow-clip overscroll-none px-4 py-10">
+        <EnvelopeReveal letter={letter} onRevealed={handleRevealed} />
       </main>
     );
   }
@@ -56,8 +72,11 @@ export function LetterView({ id }: { id: string }) {
   return (
     <>
       <LetterTimelineDrawer currentId={id} />
-      <main className="flex min-h-screen justify-center px-4 pb-32 pt-10 sm:px-6 sm:pt-16">
-        <div className="animate-letter-land w-full max-w-2xl">
+      <main className="flex min-h-screen justify-center px-3 pb-32 pt-10 sm:px-6 sm:pt-16">
+        <div
+          className={`w-full max-w-2xl ${morphed ? '' : 'animate-letter-land'}`}
+          style={{ viewTransitionName: 'letter-sheet' } as React.CSSProperties}
+        >
           <LetterPaper
             template={letter.template}
             title={letter.title}
@@ -75,14 +94,16 @@ export function LetterView({ id }: { id: string }) {
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
       >
         <div className="glass-thick animate-fade-in-up flex items-center gap-1.5 rounded-full p-1.5" style={{ animationDelay: '0.35s' }}>
-          <Link href="/" className="flex h-11 items-center rounded-full px-5 font-body text-[15px] font-semibold text-ink-700 transition-transform duration-300 ease-spring hover:bg-white/60 active:scale-95">
+          <Link href="/milestones" className="flex h-11 items-center rounded-full px-5 font-body text-[15px] font-semibold text-ink-700 transition-transform duration-300 ease-spring hover:bg-white/60 active:scale-95">
             Home
           </Link>
-          <Link href={`/?reply_to=${letter.id}`} className="btn-primary">
+          <button type="button" className="btn-primary" onClick={() => setComposeOpen(true)}>
             Write back
-          </Link>
+          </button>
         </div>
       </div>
+
+      <ComposeWindow open={composeOpen} onClose={closeCompose} replyTo={{ id: letter.id, title: letter.title }} />
     </>
   );
 }

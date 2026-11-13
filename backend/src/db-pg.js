@@ -307,6 +307,52 @@ export async function createPgDb(connectionString) {
       return rowCount > 0;
     },
 
+    /** { moon: cat, sun: cat } — both rows are seeded by schema.sql */
+    async getCats() {
+      const { rows } = await pool.query(
+        'SELECT owner, name, born_at, last_fed_at, last_fed_by, feed_count, xp, location FROM cats'
+      );
+      return Object.fromEntries(rows.map((r) => [r.owner, formatCat(r)]));
+    },
+
+    async feedCat(owner, by, at, xp) {
+      await pool.query(
+        'UPDATE cats SET last_fed_at = $1, last_fed_by = $2, feed_count = feed_count + 1, xp = xp + $3 WHERE owner = $4',
+        [at, by, xp, owner]
+      );
+    },
+
+    async addCatXp(owner, xp) {
+      await pool.query('UPDATE cats SET xp = xp + $1 WHERE owner = $2', [xp, owner]);
+    },
+
+    async renameCat(owner, name) {
+      await pool.query('UPDATE cats SET name = $1 WHERE owner = $2', [name, owner]);
+    },
+
+    async moveCat(owner, location) {
+      await pool.query('UPDATE cats SET location = $1 WHERE owner = $2', [location, owner]);
+    },
+
+    async upsertMood(mood) {
+      await pool.query(
+        `INSERT INTO moods (author, day, emoji, note, updated_at) VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (author, day) DO UPDATE SET emoji = EXCLUDED.emoji, note = EXCLUDED.note, updated_at = EXCLUDED.updated_at`,
+        [mood.author, mood.day, mood.emoji, mood.note, mood.updated_at]
+      );
+      return mood;
+    },
+
+    /** Check-ins with from <= day <= to (YYYY-MM-DD), newest day first. */
+    async getMoods({ from, to }) {
+      const { rows } = await pool.query(
+        `SELECT author, day, emoji, note, updated_at FROM moods WHERE day >= $1 AND day <= $2
+         ORDER BY day DESC, author ASC`,
+        [from, to]
+      );
+      return rows.map((r) => ({ author: r.author, day: r.day, emoji: r.emoji, note: r.note, updated_at: toIso(r.updated_at) }));
+    },
+
     /** Atomically claim a reminder key; false when it was already sent. */
     async claimReminder(key) {
       const { rowCount } = await pool.query(
@@ -400,6 +446,19 @@ function formatMilestone(row) {
     created_by: row.created_by,
     created_at: toIso(row.created_at),
     updated_at: toIso(row.updated_at),
+  };
+}
+
+function formatCat(row) {
+  return {
+    owner: row.owner,
+    name: row.name,
+    born_at: toIso(row.born_at),
+    last_fed_at: row.last_fed_at ? toIso(row.last_fed_at) : null,
+    last_fed_by: row.last_fed_by || null,
+    feed_count: Number(row.feed_count) || 0,
+    xp: Number(row.xp) || 0,
+    location: row.location,
   };
 }
 

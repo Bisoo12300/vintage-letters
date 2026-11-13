@@ -110,6 +110,48 @@ export interface Milestone {
   updated_at: string;
 }
 
+export interface MoodOption {
+  emoji: string;
+  label: string;
+}
+
+export interface MoodEntry {
+  author: 'moon' | 'sun';
+  day: string;
+  emoji: string;
+  note: string;
+  updated_at: string;
+}
+
+export interface CatState {
+  owner: 'moon' | 'sun';
+  name: string;
+  born_at: string;
+  last_fed_at: string | null;
+  last_fed_by: 'moon' | 'sun' | null;
+  feed_count: number;
+  xp: number;
+  /** Whose house the cat is at right now */
+  location: 'moon' | 'sun';
+  fullness: number;
+  hungry: boolean;
+  canFeed: boolean;
+  asleep: boolean;
+  stage: { index: 0 | 1 | 2 | 3; key: string; label: string; next: number | null; progress: number };
+}
+
+export interface PetsState {
+  day: string;
+  streak: number;
+  today: { moon: MoodEntry | null; sun: MoodEntry | null };
+  moods: MoodOption[];
+  cats: { moon: CatState; sun: CatState };
+}
+
+/** Fired on window after anything that can change the cats (a letter sent, a meal, a mood). */
+export const PETS_CHANGED = 'pets:changed';
+
+
 /** @deprecated use InboxLetter */
 export type ArchiveLetter = InboxLetter;
 
@@ -152,30 +194,8 @@ export function groupLettersByDate(letters: TimelineLetter[]) {
   return groups;
 }
 
-export const TEMPLATES = [
-  {
-    id: 'daisy-paper',
-    name: 'Daisy Meadow',
-    background: '/backgrounds/daisy-paper.jpg',
-    description: 'Vintage paper with white daisies',
-  },
-  {
-    id: 'torn-beige',
-    name: 'Torn Beige',
-    background: '/backgrounds/torn-beige.jpg',
-    description: 'Aged beige paper with torn edges',
-  },
-  {
-    id: 'christmas-letter',
-    name: 'Christmas Letter',
-    background: '/backgrounds/christmas-letter.jpg',
-    description: 'Vintage Christmas letter paper',
-  },
-] as const;
-
-export type TemplateId = (typeof TEMPLATES)[number]['id'];
-
-export function formatDuration(seconds: number): string {  if (seconds < 60) return `${seconds} sec`;
+export function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds} sec`;
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   if (mins < 60) return secs > 0 ? `${mins} min ${secs} sec` : `${mins} min`;

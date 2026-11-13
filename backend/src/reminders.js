@@ -1,5 +1,6 @@
 import { AUTHORS } from './auth.js';
 import { isPushConfigured, sendPushToAuthor } from './push.js';
+import { CHECKIN_HOUR, fullnessAt, localDay, localHour } from './pets.js';
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -128,7 +129,40 @@ export async function runReminders(db, { now = new Date(), send } = {}) {
     sent.push(key);
   }
 
+  sent.push(...(await runCheckins(db, { now, deliver })));
+
   if (sent.length) console.log(`[reminders] sent ${sent.length}:`, sent.join(', '));
+  return sent;
+}
+
+/**
+ * Your cat's daily question. From CHECKIN_HOUR (local) until midnight, anyone who hasn't
+ * told their cat how their day was gets one push per day. Runs inside runReminders, so it
+ * follows the same scheduler, cron endpoint and "push configured" guard.
+ */
+export async function runCheckins(db, { now = new Date(), deliver }) {
+  if (localHour(now) < CHECKIN_HOUR) return [];
+  const day = localDay(now);
+  const [cats, moods] = await Promise.all([db.getCats(), db.getMoods({ from: day, to: day })]);
+  const answered = new Set(moods.map((m) => m.author));
+  const sent = [];
+
+  for (const author of AUTHORS) {
+    if (answered.has(author)) continue;
+    const cat = cats[author];
+    const hungry = fullnessAt(cat.last_fed_at, now) < 25;
+    const key = `checkin:${day}:${author}`;
+    if (!(await db.claimReminder(key))) continue;
+    const unreadCount = await db.countUnreadInbox(author);
+    await deliver(author, {
+      title: `🐱 ${cat.name} is asking`,
+      body: `How was your day? Tell me with an emoji.${hungry ? " …and I'm a little hungry." : ''}`,
+      url: '/pets?checkin=1',
+      unreadCount,
+      tag: `checkin:${day}`,
+    });
+    sent.push(key);
+  }
   return sent;
 }
 

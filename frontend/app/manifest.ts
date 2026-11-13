@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'Clair de Lune',
     short_name: 'Clair de Lune',
     description: 'Letters between the Moon and the Sun',
-    start_url: '/',
+    start_url: '/milestones',
     scope: '/',
     display: 'standalone',
     background_color: '#E9DDF0',

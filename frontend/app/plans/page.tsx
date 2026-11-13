@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { SiteShell } from '@/components/SiteShell';
 import { PlanModal } from '@/components/plans/PlanModal';
-import { LogoMark, OrbitLoader } from '@/components/brand';
+import { LogoMark, PigeonLoader } from '@/components/brand';
 import { useIdentity } from '@/components/IdentityGate';
 import { apiFetch, formatDate, type DatePlan, type Milestone } from '@/lib/api';
 import { fromDateParam, momentsOnDay } from '@/lib/moments';
@@ -201,7 +201,7 @@ export default function PlansPage() {
       fallback={
         <SiteShell>
           <div className="flex justify-center py-24">
-            <OrbitLoader />
+            <PigeonLoader />
           </div>
         </SiteShell>
       }
@@ -450,7 +450,7 @@ function PlansView() {
           )}
           {loading && (
             <div className="flex justify-center py-16">
-              <OrbitLoader label="Loading plans…" />
+              <PigeonLoader label="Loading plans…" />
             </div>
           )}
 

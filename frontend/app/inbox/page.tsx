@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { SiteShell } from '@/components/SiteShell';
-import { AuthorGlyph, OrbitLoader } from '@/components/brand';
+import { AuthorGlyph, PigeonLoader } from '@/components/brand';
 import { Pager } from '@/components/Pager';
 import { useIdentity } from '@/components/IdentityGate';
 import { apiFetch, type InboxLetter } from '@/lib/api';
@@ -25,7 +25,7 @@ export default function InboxPage() {
       <Suspense
         fallback={
           <div className="flex justify-center py-24">
-            <OrbitLoader />
+            <PigeonLoader />
           </div>
         }
       >
@@ -66,7 +66,7 @@ function Inbox() {
   return (
     <div className="mx-auto max-w-2xl px-4 pt-10 sm:px-8 sm:pt-16">
       <header className="animate-fade-in-up mb-8 px-1">
-        <h1 className="font-display text-[2.75rem] font-semibold leading-none tracking-[-0.02em] text-ink-800 sm:text-6xl">
+        <h1 className="title-shine font-display text-[2.75rem] font-semibold leading-none tracking-[-0.02em] text-ink-800 sm:text-6xl">
           Inbox
         </h1>
         <p className="mt-3 font-body text-[17px] text-ink-500">
@@ -80,7 +80,7 @@ function Inbox() {
 
       {list.initialLoading && (
         <div className="flex justify-center py-16">
-          <OrbitLoader label="Checking the mailbox…" />
+          <PigeonLoader label="Checking the mailbox…" />
         </div>
       )}
       {list.error && (
@@ -95,7 +95,7 @@ function Inbox() {
       {list.loaded && list.total === 0 && !list.error && (
         <div className="glass-card text-center">
           <p className="font-body text-[17px] text-ink-600">Nothing from {other} yet.</p>
-          <Link href="/" className="btn-primary mt-5">
+          <Link href="/admin?compose=1" className="btn-primary mt-5">
             Write to {other} first
           </Link>
         </div>
@@ -104,7 +104,7 @@ function Inbox() {
       {letters.length > 0 && (
         <>
           <ul
-            className={`glass overflow-hidden rounded-glass-lg transition-opacity duration-200 ${list.loading ? 'opacity-60' : ''}`}
+            className={`glass stagger overflow-hidden rounded-glass-lg transition-opacity duration-200 ${list.loading ? 'opacity-60' : ''}`}
             aria-busy={list.loading}
           >
             {letters.map((letter, i) => (

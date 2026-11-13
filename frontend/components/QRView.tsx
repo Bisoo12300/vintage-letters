@@ -5,7 +5,7 @@ import Link from 'next/link';
 import QRCode from 'qrcode';
 import { SiteShell } from '@/components/SiteShell';
 import { apiFetch, type Letter } from '@/lib/api';
-import { OrbitLoader } from '@/components/brand';
+import { PigeonLoader } from '@/components/brand';
 
 export function QRView({ id }: { id: string }) {
   const [letter, setLetter] = useState<Letter | null>(null);
@@ -44,7 +44,7 @@ export function QRView({ id }: { id: string }) {
     return (
       <SiteShell>
         <div className="flex min-h-[50vh] items-center justify-center">
-          <OrbitLoader label="Making the QR code…" />
+          <PigeonLoader label="Making the QR code…" />
         </div>
       </SiteShell>
     );
@@ -76,7 +76,7 @@ export function QRView({ id }: { id: string }) {
             <Link href={`/letter/${id}`} className="btn text-sm">
               Open letter
             </Link>
-            <Link href="/" className="btn text-sm">
+            <Link href="/admin?compose=1" className="btn text-sm">
               Write another
             </Link>
           </div>

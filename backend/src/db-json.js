@@ -4,7 +4,20 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataPath = path.join(__dirname, '..', 'data', 'store.json');
-const defaultStore = { letters: [], reading_sessions: [], date_plans: [], milestones: [], push_subscriptions: [], reminders_sent: [] };
+const defaultStore = {
+  letters: [],
+  reading_sessions: [],
+  date_plans: [],
+  milestones: [],
+  push_subscriptions: [],
+  reminders_sent: [],
+  cats: null,
+  moods: [],
+};
+
+function newCat(owner, name) {
+  return { owner, name, born_at: new Date().toISOString(), last_fed_at: null, last_fed_by: null, feed_count: 0, xp: 0, location: owner };
+}
 
 function load() {
   fs.mkdirSync(path.dirname(dataPath), { recursive: true });
@@ -18,6 +31,7 @@ function load() {
   if (!data.milestones) data.milestones = [];
   if (!data.push_subscriptions) data.push_subscriptions = [];
   if (!data.reminders_sent) data.reminders_sent = [];
+  if (!data.moods) data.moods = [];
   return data;
 }
 
@@ -230,6 +244,55 @@ export function createJsonDb() {
       store.milestones = store.milestones.filter((m) => m.id !== id);
       save(store);
       return store.milestones.length < before;
+    },
+
+    /** { moon: cat, sun: cat } */
+    async getCats() {
+      if (!store.cats) {
+        store.cats = { moon: newCat('moon', 'Luna'), sun: newCat('sun', 'Sol') };
+        save(store);
+      }
+      return structuredClone(store.cats);
+    },
+
+    async updateCat(owner, updates) {
+      await this.getCats();
+      store.cats[owner] = { ...store.cats[owner], ...updates };
+      save(store);
+      return { ...store.cats[owner] };
+    },
+
+    async feedCat(owner, by, at, xp) {
+      const cat = (await this.getCats())[owner];
+      return this.updateCat(owner, { last_fed_at: at, last_fed_by: by, feed_count: cat.feed_count + 1, xp: cat.xp + xp });
+    },
+
+    async addCatXp(owner, xp) {
+      const cat = (await this.getCats())[owner];
+      return this.updateCat(owner, { xp: cat.xp + xp });
+    },
+
+    async renameCat(owner, name) {
+      return this.updateCat(owner, { name });
+    },
+
+    async moveCat(owner, location) {
+      return this.updateCat(owner, { location });
+    },
+
+    async upsertMood(mood) {
+      const idx = store.moods.findIndex((m) => m.author === mood.author && m.day === mood.day);
+      if (idx === -1) store.moods.push(mood);
+      else store.moods[idx] = mood;
+      save(store);
+      return mood;
+    },
+
+    /** Check-ins with from <= day <= to (YYYY-MM-DD), newest day first. */
+    async getMoods({ from, to }) {
+      return store.moods
+        .filter((m) => m.day >= from && m.day <= to)
+        .sort((a, b) => b.day.localeCompare(a.day) || a.author.localeCompare(b.author));
     },
 
     async claimReminder(key) {

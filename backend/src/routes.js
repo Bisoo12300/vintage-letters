@@ -4,6 +4,17 @@ import { getDb } from './db.js';
 import { AUTHORS, assertOwnLetter, requireAuthor } from './auth.js';
 import { otherAuthor, sendPushToAuthor } from './push.js';
 import { runReminders } from './reminders.js';
+import {
+  MOODS,
+  XP,
+  bothStreak,
+  catStatus,
+  localDay,
+  moveOnLetter,
+  parseMoodInput,
+  parseNameInput,
+  previousDay,
+} from './pets.js';
 
 const router = Router();
 
@@ -46,7 +57,7 @@ router.get('/me', requireAuthor, (req, res) => {
 /** Create — tagged with current role */
 router.post('/letters', requireAuthor, async (req, res) => {
   const db = getDb();
-  const { title, content, template = 'daisy-paper', reply_to = null } = req.body;
+  const { title, content, template = 'daisy-paper', reply_to = null, notify = true } = req.body;
   if (!title?.trim() || !content?.trim()) {
     return res.status(400).json({ error: 'Title and content required' });
   }
@@ -70,6 +81,14 @@ router.post('/letters', requireAuthor, async (req, res) => {
   };
   await db.insertLetter(letter);
 
+  // The letter travels by cat: the sender's cat carries it over, or a visiting cat carries the reply home.
+  try {
+    const move = moveOnLetter(await db.getCats(), req.author);
+    if (move) await db.moveCat(move.owner, move.location);
+  } catch (err) {
+    console.warn('[pets] move on letter failed:', err.message);
+  }
+
   const frontendUrl = frontendBase();
   res.status(201).json({
     ...letter,
@@ -77,6 +96,7 @@ router.post('/letters', requireAuthor, async (req, res) => {
     qrUrl: `${frontendUrl}/qr/${id}`,
   });
 
+  if (notify === false) return; // sender chose to send quietly
   const recipient = otherAuthor(req.author);
   db.countUnreadInbox(recipient)
     .then((unreadCount) =>
@@ -471,6 +491,96 @@ router.delete('/milestones/:id', requireAuthor, async (req, res) => {
   const deleted = await getDb().deleteMilestone(req.params.id);
   if (!deleted) return res.status(404).json({ error: 'Milestone not found' });
   res.json({ ok: true });
+});
+
+/* ─── The two cats ────────────────────────────────────────────────────────── */
+
+/** Enough history for the streak shown on the pets page. */
+const STREAK_LOOKBACK_DAYS = 60;
+
+function daysBack(day, count) {
+  let d = day;
+  for (let i = 1; i < count; i++) d = previousDay(d);
+  return d;
+}
+
+async function petsView(db, now = new Date()) {
+  const today = localDay(now);
+  const [cats, moods] = await Promise.all([
+    db.getCats(),
+    db.getMoods({ from: daysBack(today, STREAK_LOOKBACK_DAYS), to: today }),
+  ]);
+  const todays = moods.filter((m) => m.day === today);
+  return {
+    day: today,
+    streak: bothStreak(moods, today),
+    today: Object.fromEntries(AUTHORS.map((a) => [a, todays.find((m) => m.author === a) || null])),
+    moods: MOODS,
+    cats: Object.fromEntries(AUTHORS.map((a) => [a, { ...cats[a], ...catStatus(cats[a], now) }])),
+  };
+}
+
+router.get('/pets', requireAuthor, async (_req, res) => {
+  res.json(await petsView(getDb()));
+});
+
+/** Feed a cat that is at your house right now: your own, or the other one's while it visits. */
+router.post('/pets/:owner/feed', requireAuthor, async (req, res) => {
+  const { owner } = req.params;
+  if (!AUTHORS.includes(owner)) return res.status(404).json({ error: 'No such cat' });
+  const db = getDb();
+  const now = new Date();
+  const cat = (await petsView(db, now)).cats[owner];
+  if (cat.location !== req.author) {
+    return res.status(409).json({ error: `${cat.name} is at the other house right now. Only they can feed it.` });
+  }
+  if (!cat.canFeed) return res.status(409).json({ error: `${cat.name} is full. Come back in a few hours.` });
+  await db.feedCat(owner, req.author, now.toISOString(), XP.feed);
+  res.json(await petsView(db, now));
+});
+
+/** Rename your own cat. */
+router.put('/pets/name', requireAuthor, async (req, res) => {
+  const parsed = parseNameInput(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  await getDb().renameCat(req.author, parsed.value);
+  res.json(await petsView(getDb()));
+});
+
+/** Today's mood for the signed-in author; sending again the same day replaces it. */
+router.put('/pets/mood', requireAuthor, async (req, res) => {
+  const parsed = parseMoodInput(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+
+  const db = getDb();
+  const now = new Date();
+  const day = localDay(now);
+  const first = !(await db.getMoods({ from: day, to: day })).some((m) => m.author === req.author);
+  const mood = { author: req.author, day, ...parsed.value, updated_at: now.toISOString() };
+  await db.upsertMood(mood);
+  if (first) await db.addCatXp(req.author, XP.mood); // telling your cat about your day helps it grow, once a day
+  res.json(await petsView(db, now));
+
+  const recipient = otherAuthor(req.author);
+  const label = MOODS.find((m) => m.emoji === mood.emoji)?.label.toLowerCase();
+  db.countUnreadInbox(recipient)
+    .then((unreadCount) =>
+      sendPushToAuthor(db, recipient, {
+        title: `${req.author === 'moon' ? 'Moon' : 'Sun'} is feeling ${mood.emoji} ${label} today`,
+        body: mood.note || 'Tap to see how their day went.',
+        url: '/pets',
+        unreadCount,
+        tag: `mood:${mood.day}:${req.author}`,
+      })
+    )
+    .catch((err) => console.warn('[push] mood notify failed:', err.message));
+});
+
+/** Both authors' check-ins for the last `days` days (default 14, max 60), newest first. */
+router.get('/pets/moods', requireAuthor, async (req, res) => {
+  const days = Math.min(Math.max(Number.parseInt(req.query.days ?? '14', 10) || 14, 1), 60);
+  const today = localDay(new Date());
+  res.json(await getDb().getMoods({ from: daysBack(today, days), to: today }));
 });
 
 /**

@@ -5,16 +5,17 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useIdentity } from '@/components/IdentityGate';
 import { AuthorGlyph, LogoMark, Wordmark } from '@/components/brand';
+import { CatRoamers } from '@/components/CatRoamers';
 import { authorLabel } from '@/lib/identity';
 import { apiFetch } from '@/lib/api';
 import { syncAppBadge } from '@/lib/push';
 
 const NAV = [
-  { href: '/', label: 'Write', icon: IconEnvelope },
+  { href: '/milestones', label: 'Moments', icon: IconSunrise },
+  { href: '/pets', label: 'Pets', icon: IconCat },
   { href: '/admin', label: 'Mine', icon: IconQuill },
   { href: '/inbox', label: 'Inbox', icon: IconTray },
   { href: '/plans', label: 'Plans', icon: IconCalendar },
-  { href: '/milestones', label: 'Moments', icon: IconSunrise },
 ];
 
 function UnreadDot({ count, className }: { count: number; className: string }) {
@@ -70,19 +71,22 @@ export function SiteShell({
           style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.625rem)' }}
         >
           <div className="glass mx-auto flex max-w-5xl items-center justify-between gap-3 rounded-full py-1.5 pl-3 pr-1.5">
-            <Link href="/" className="flex items-center gap-2.5 rounded-full pr-2" aria-label="Clair de Lune home">
+            <Link href="/milestones" className="flex items-center gap-2.5 rounded-full pr-2" aria-label="Clair de Lune home">
               <LogoMark className="h-8 w-8" />
               <Wordmark />
             </Link>
 
             {/* Desktop — segmented capsule with a sliding lens; mobile uses the bottom tab bar */}
-            <nav className="relative hidden grid-cols-5 rounded-full bg-ink-800/[0.06] p-1 md:grid">
+            <nav
+              className="relative hidden rounded-full bg-ink-800/[0.06] p-1 md:grid"
+              style={{ gridTemplateColumns: `repeat(${NAV.length}, minmax(0, 1fr))` }}
+            >
               {activeIndex >= 0 && (
                 <span
                   aria-hidden
-                  className="absolute bottom-1 left-1 top-1 rounded-full bg-white/90 shadow-[0_2px_8px_rgba(35,40,88,0.14),inset_0_1px_0_#fff] transition-transform duration-500 ease-spring"
+                  className="nav-lens absolute bottom-1 left-1 top-1 rounded-full bg-white/90 transition-transform duration-500 ease-spring"
                   style={{
-                    width: 'calc((100% - 0.5rem) / 5)',
+                    width: `calc((100% - 0.5rem) / ${NAV.length})`,
                     transform: `translateX(${activeIndex * 100}%)`,
                   }}
                 />
@@ -118,23 +122,29 @@ export function SiteShell({
       )}
 
       <main
-        className={hideNav ? 'flex-1' : 'flex-1 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-10'}
+        // Bottom room for the tab bar (phones) and for the cats that walk along the bottom edge
+        className={hideNav ? 'flex-1' : 'flex-1 pb-[calc(11rem+env(safe-area-inset-bottom))] md:pb-28'}
       >
         {children}
       </main>
+
+      {!hideNav && <CatRoamers anchor={activeIndex >= 0 ? ((activeIndex + 0.5) / NAV.length) * 100 : 50} />}
 
       {!hideNav && (
         <nav
           className="fixed inset-x-0 bottom-0 z-50 px-4 md:hidden"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
         >
-          <div className="glass-thick relative mx-auto grid max-w-md grid-cols-5 rounded-full p-1.5">
+          <div
+            className="glass-thick relative mx-auto grid max-w-md rounded-full p-1.5"
+            style={{ gridTemplateColumns: `repeat(${NAV.length}, minmax(0, 1fr))` }}
+          >
             {activeIndex >= 0 && (
               <span
                 aria-hidden
-                className="absolute bottom-1.5 left-1.5 top-1.5 rounded-full bg-white/80 shadow-[0_2px_10px_rgba(35,40,88,0.14),inset_0_1px_0_#fff] transition-transform duration-500 ease-spring"
+                className="nav-lens absolute bottom-1.5 left-1.5 top-1.5 rounded-full bg-white/80 transition-transform duration-500 ease-spring"
                 style={{
-                  width: 'calc((100% - 0.75rem) / 5)',
+                  width: `calc((100% - 0.75rem) / ${NAV.length})`,
                   transform: `translateX(${activeIndex * 100}%)`,
                 }}
               />
@@ -176,15 +186,6 @@ export function SiteShell({
 type IconProps = { active?: boolean; className?: string };
 const stroke = { stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
 
-function IconEnvelope({ active, className }: IconProps) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
-      <rect x="3" y="5.5" width="18" height="13" rx="3" fill="currentColor" fillOpacity={active ? 0.16 : 0} {...stroke} />
-      <path d="m3.8 7.2 7 5.2a2 2 0 0 0 2.4 0l7-5.2" {...stroke} />
-    </svg>
-  );
-}
-
 function IconQuill({ active, className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
@@ -223,6 +224,23 @@ function IconCalendar({ active, className }: IconProps) {
   );
 }
 
+/** A cat's face — the two kittens you raise. */
+function IconCat({ active, className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden>
+      <path
+        d="M5 4.5l3.4 3.1a8 8 0 0 1 7.2 0L19 4.5v7.3c0 4.2-3.1 7.2-7 7.2s-7-3-7-7.2V4.5Z"
+        fill="currentColor"
+        fillOpacity={active ? 0.16 : 0}
+        {...stroke}
+      />
+      <path d="M10.6 14.4 12 15.6l1.4-1.2M2.8 13.2l3-.4M21.2 13.2l-3-.4" {...stroke} />
+      <circle cx="9.2" cy="11.4" r="0.95" fill="currentColor" />
+      <circle cx="14.8" cy="11.4" r="0.95" fill="currentColor" />
+    </svg>
+  );
+}
+
 /** Half-risen sun over the horizon — "moments" are days rising toward us. */
 function IconSunrise({ active, className }: IconProps) {
   return (
@@ -238,7 +256,7 @@ export function PageHero({ title, subtitle }: { title: string; subtitle?: string
   return (
     <section className="px-5 pb-6 pt-10 sm:px-8 sm:pb-10 sm:pt-16">
       <div className="animate-fade-in-up mx-auto max-w-3xl">
-        <h1 className="font-display text-[2.75rem] font-semibold leading-[1.02] tracking-[-0.02em] text-ink-800 sm:text-6xl">
+        <h1 className="title-shine font-display text-[2.75rem] font-semibold leading-[1.02] tracking-[-0.02em] text-ink-800 sm:text-6xl">
           {title}
         </h1>
         {subtitle && (

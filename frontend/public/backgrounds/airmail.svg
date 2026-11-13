@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 600 400">
+<defs>
+  <pattern id="am" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M0 50H15L65 0H50Z" fill="#D2423F"/><path d="M-50 50H-35L15 0H0Z" fill="#D2423F"/><path d="M25 50H40L90 0H75Z" fill="#2F4F9E"/><path d="M-25 50H-10L40 0H25Z" fill="#2F4F9E"/></pattern>
+</defs>
+<rect width="600" height="400" fill="#FFFEF9"/>
+<path fill-rule="evenodd" d="M0 0H600V400H0ZM14 14V386H586V14Z" fill="url(#am)"/>
+<g fill="none" stroke="#2F4F9E">
+  <rect x="34" y="34" width="150" height="42" rx="4" stroke-width="2"/>
+  <rect x="38" y="38" width="142" height="34" rx="2" stroke-width="0.8"/>
+</g>
+<g fill="#2F4F9E" font-family="Georgia, 'Times New Roman', serif" text-anchor="middle">
+  <text x="109" y="57" font-size="15" font-weight="700" letter-spacing="2.5">PAR AVION</text>
+  <text x="109" y="68" font-size="7.5" letter-spacing="2">BY AIR MAIL</text>
+</g>
+<g fill="none" stroke="#8D97BD" stroke-width="1.3" opacity="0.85">
+  <path d="M318 40q10 -6 20 0t20 0t20 0t20 0t20 0"/><path d="M318 49q10 -6 20 0t20 0t20 0t20 0t20 0"/><path d="M318 58q10 -6 20 0t20 0t20 0t20 0t20 0"/><path d="M318 67q10 -6 20 0t20 0t20 0t20 0t20 0"/>
+  <circle cx="440" cy="54" r="27"/><circle cx="440" cy="54" r="21" stroke-width="0.8"/>
+</g>
+<path d="M440 45Q440 54 449 54Q440 54 440 63Q440 54 431 54Q440 54 440 45Z" fill="#8D97BD" opacity="0.85"/>
+<rect x="498" y="26" width="70" height="78" fill="#FBE7CB"/>
+<rect x="498" y="26" width="70" height="78" fill="none" stroke="#FFFEF9" stroke-width="6" stroke-dasharray="0.1 7.4" stroke-linecap="round"/>
+<rect x="506" y="34" width="54" height="62" fill="#DCE5FA"/>
+<circle cx="524" cy="56" r="10" fill="#F2A541"/>
+<path d="M549 46a11 11 0 1 0 5 20a13 13 0 0 1 -5 -20Z" fill="#4A56A0"/>
+<path d="M506 80q14 -10 27 0t27 0V96H506Z" fill="#9FB1E6"/>
+</svg>

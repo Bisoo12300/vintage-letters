@@ -3,11 +3,14 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { apiFetch, formatDate, formatDuration, TEMPLATES, type Letter, type LetterStats } from '@/lib/api';
+import { apiFetch, formatDate, formatDuration, type Letter, type LetterStats } from '@/lib/api';
+import { TEMPLATES } from '@/lib/papers';
+import { ComposeWindow } from '@/components/ComposeWindow';
+import { TemplatePicker } from '@/components/TemplatePicker';
 import { SiteShell } from '@/components/SiteShell';
 import { useIdentity } from '@/components/IdentityGate';
 import { authorLabel, type AuthorId } from '@/lib/identity';
-import { AuthorGlyph, OrbitLoader } from '@/components/brand';
+import { AuthorGlyph, PigeonLoader } from '@/components/brand';
 import { Pager } from '@/components/Pager';
 import { pageFromParams, usePagination } from '@/lib/usePagination';
 
@@ -25,7 +28,7 @@ export default function AdminPage() {
       <Suspense
         fallback={
           <div className="flex justify-center py-24">
-            <OrbitLoader />
+            <PigeonLoader />
           </div>
         }
       >
@@ -46,6 +49,12 @@ function MyLetters() {
   const listScrollY = useRef(0);
   const pushedFromList = useRef(false);
   const listUrl = page > 1 ? `/admin?page=${page}` : '/admin';
+  // "/admin?compose=1" (from Inbox or a QR page) opens the composer straight away
+  const [composeOpen, setComposeOpen] = useState(params.get('compose') === '1');
+  const closeCompose = useCallback(() => {
+    setComposeOpen(false);
+    if (params.get('compose')) router.replace(listUrl, { scroll: false });
+  }, [params, router, listUrl]);
 
   function openLetter(id: string) {
     listScrollY.current = window.scrollY;
@@ -88,21 +97,21 @@ function MyLetters() {
       <div className={`mx-auto max-w-2xl px-4 pt-10 sm:px-8 sm:pt-16 ${selectedId ? 'hidden' : ''}`}>
         <header className="animate-fade-in-up mb-8 flex flex-wrap items-end justify-between gap-4 px-1">
           <div>
-            <h1 className="font-display text-[2.75rem] font-semibold leading-none tracking-[-0.02em] text-ink-800 sm:text-6xl">
+            <h1 className="title-shine font-display text-[2.75rem] font-semibold leading-none tracking-[-0.02em] text-ink-800 sm:text-6xl">
               My letters
             </h1>
             <p className="mt-3 font-body text-[17px] text-ink-500">
               Tap a letter to edit it or see when it was read.
             </p>
           </div>
-          <Link href="/" className="btn-primary">
+          <button type="button" className="btn-primary" onClick={() => setComposeOpen(true)}>
             New letter
-          </Link>
+          </button>
         </header>
 
         {list.initialLoading && (
           <div className="flex justify-center py-16">
-            <OrbitLoader label="Gathering your letters…" />
+            <PigeonLoader label="Gathering your letters…" />
           </div>
         )}
         {list.error && (
@@ -116,15 +125,15 @@ function MyLetters() {
         {list.loaded && list.total === 0 && !list.error && (
           <div className="glass-card text-center">
             <p className="font-body text-[17px] text-ink-600">You haven't sent a letter yet.</p>
-            <Link href="/" className="btn-primary mt-5">
+            <button type="button" className="btn-primary mt-5" onClick={() => setComposeOpen(true)}>
               Write your first letter
-            </Link>
+            </button>
           </div>
         )}
 
         {letters.length > 0 && (
           <ul
-            className={`glass overflow-hidden rounded-glass-lg transition-opacity duration-200 ${list.loading ? 'opacity-60' : ''}`}
+            className={`glass stagger overflow-hidden rounded-glass-lg transition-opacity duration-200 ${list.loading ? 'opacity-60' : ''}`}
             aria-busy={list.loading}
           >
             {letters.map((letter, i) => (
@@ -174,6 +183,8 @@ function MyLetters() {
           }}
         />
       )}
+
+      <ComposeWindow open={composeOpen} onClose={closeCompose} onSent={list.reload} />
     </>
   );
 }
@@ -277,7 +288,7 @@ function LetterEditor({
         </div>
       ) : !stats ? (
         <div className="flex justify-center py-16">
-          <OrbitLoader label="Opening letter…" />
+          <PigeonLoader label="Opening letter…" />
         </div>
       ) : (
         <div className="space-y-6">
@@ -287,30 +298,7 @@ function LetterEditor({
               <span className="font-body text-[13px] text-ink-400">Sent {formatDate(stats.created_at)}</span>
             </div>
 
-            <fieldset>
-              <legend className="mb-3 font-body text-[13px] font-semibold text-ink-500">Paper</legend>
-              <div className="grid grid-cols-3 gap-3">
-                {TEMPLATES.map((t) => {
-                  const active = form.template === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setForm({ ...form, template: t.id })}
-                      aria-pressed={active}
-                      className={`relative overflow-hidden rounded-2xl transition-transform duration-500 ease-spring active:scale-95 ${
-                        active ? 'scale-[1.02] ring-2 ring-ink-800 ring-offset-2 ring-offset-white/0' : 'opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="aspect-[4/3] bg-cover bg-center" style={{ backgroundImage: `url(${t.background})` }} />
-                      <span className="glass absolute inset-x-1.5 bottom-1.5 truncate rounded-xl px-2 py-1 text-center font-body text-[12px] font-semibold text-ink-800">
-                        {t.name}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </fieldset>
+            <TemplatePicker value={form.template} onChange={(template) => setForm({ ...form, template })} />
 
             <label className="block">
               <span className="mb-2 block font-body text-[13px] font-semibold text-ink-500">Title</span>

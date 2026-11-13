@@ -1,6 +1,7 @@
 'use client';
 
 import { useId } from 'react';
+import { FlyingPigeon } from '@/components/Pigeon';
 
 /** Heart split by an S-curve: night with a crescent on the left, day with a sun on the right. */
 const HEART =
@@ -120,25 +121,84 @@ export function AuthorGlyph({ author, className }: { author?: string | null; cla
   );
 }
 
-/** Living backdrop behind every glass surface. Tint follows html[data-identity]. */
+/** Fixed positions (no randomness) so server and client render the same sky. */
+const SPARKS = [
+  { left: '9%', top: '22%', s: 16, d: 4.2, t: 0 },
+  { left: '31%', top: '9%', s: 11, d: 5.5, t: -1.6 },
+  { left: '58%', top: '17%', s: 14, d: 4.8, t: -3.1 },
+  { left: '17%', top: '58%', s: 12, d: 6.1, t: -2.2 },
+  { left: '44%', top: '70%', s: 15, d: 5.2, t: -0.8 },
+  { left: '71%', top: '52%', s: 11, d: 4.4, t: -3.8 },
+  { left: '88%', top: '76%', s: 17, d: 5.8, t: -1.1 },
+  { left: '64%', top: '88%', s: 10, d: 6.4, t: -4.4 },
+];
+
+const MOTES = [
+  { left: '6%', s: 5, d: 17, t: -2, x: '5vw' },
+  { left: '18%', s: 8, d: 22, t: -11, x: '-3vw' },
+  { left: '29%', s: 4, d: 15, t: -6, x: '6vw' },
+  { left: '41%', s: 7, d: 24, t: -17, x: '2vw' },
+  { left: '53%', s: 5, d: 19, t: -9, x: '-5vw' },
+  { left: '66%', s: 9, d: 26, t: -3, x: '4vw' },
+  { left: '77%', s: 4, d: 16, t: -13, x: '-2vw' },
+  { left: '86%', s: 6, d: 21, t: -7, x: '3vw' },
+  { left: '94%', s: 5, d: 18, t: -15, x: '-6vw' },
+];
+
+/** Living backdrop behind every glass surface. Night and day follow html[data-identity]. */
 export function Sky() {
   return (
     <div className="sky" aria-hidden>
-      <div className="sky-stars" />
       <div className="sky-orb sky-orb--moon" />
       <div className="sky-orb sky-orb--sun" />
       <div className="sky-orb sky-orb--rose" />
+
+      <div className="sky-night">
+        <div className="sky-stars" />
+        <div className="sky-stars sky-stars--b" />
+        <div className="sky-stars sky-stars--c" />
+        {SPARKS.map((p) => (
+          <span
+            key={p.left}
+            className="sky-spark"
+            style={{ left: p.left, top: p.top, '--s': `${p.s}px`, '--d': `${p.d}s`, '--t': `${p.t}s` } as React.CSSProperties}
+          />
+        ))}
+        <span className="sky-meteor" />
+        <span className="sky-meteor sky-meteor--2" />
+      </div>
+
+      <div className="sky-day">
+        <span className="sky-cloud" />
+        <span className="sky-cloud sky-cloud--2" />
+        <span className="sky-cloud sky-cloud--3" />
+        {MOTES.map((p) => (
+          <span
+            key={p.left}
+            className="sky-mote"
+            style={{ left: p.left, '--s': `${p.s}px`, '--d': `${p.d}s`, '--t': `${p.t}s`, '--x': p.x } as React.CSSProperties}
+          />
+        ))}
+      </div>
+
+      <div className="sky-body sky-body--sun">
+        <span className="sky-rays" />
+        <span className="sky-rays sky-rays--2" />
+        <span className="sky-disc" />
+      </div>
+      <div className="sky-body sky-body--moon">
+        <span className="sky-halo" />
+        <span className="sky-disc" />
+      </div>
     </div>
   );
 }
 
-export function OrbitLoader({ label }: { label?: string }) {
+/** Loading indicator: the pigeon flying in with a letter tied to its leg. */
+export function PigeonLoader({ label }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4" role="status" aria-live="polite">
-      <div className="orbit-loader" aria-hidden>
-        <span className="orbit-loader__body orbit-loader__body--sun" />
-        <span className="orbit-loader__body orbit-loader__body--moon" />
-      </div>
+    <div className="flex flex-col items-center justify-center gap-3" role="status" aria-live="polite">
+      <FlyingPigeon />
       {label && <p className="font-body text-[15px] text-ink-500">{label}</p>}
       <span className="sr-only">{label || 'Loading'}</span>
     </div>

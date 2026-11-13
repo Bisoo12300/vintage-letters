@@ -1,20 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { TEMPLATES, type Letter } from '@/lib/api';
-import { LogoMark } from '@/components/brand';
+import { flushSync } from 'react-dom';
+import type { Letter } from '@/lib/api';
+import { authorLabel } from '@/lib/identity';
+import { AuthorGlyph, LogoMark } from '@/components/brand';
+import { PaperSheet } from '@/components/LetterPaper';
 
 type Phase = 'idle' | 'seal' | 'flap' | 'pull' | 'exit';
 
-const SEAL_MS = 520;
+const SEAL_MS = 560;
 const FLAP_MS = 650;
-const EXIT_MS = 520;
-/** Fraction of the max pull that counts as "out" on release */
+const EXIT_MS = 460;
+/** Pull is a fraction of the letter's own height, so it scales with the envelope.
+    Once the flap is open the letter slides this far out by itself. */
+const PEEK = 0.38;
+const MAX = 0.82;
+/** Fraction of MAX that counts as "out" on release */
 const REVEAL_AT = 0.6;
 /** Upward flick speed (px/ms) that opens regardless of distance */
 const FLICK_VELOCITY = 0.55;
-/** Letter peeks this fraction of its height once the flap is open */
-const PEEK = 0.26;
 
 const VB = { w: 560, h: 400 };
 const BODY = { x: 48, y: 128, w: 464, h: 224 };
@@ -24,17 +29,54 @@ const MOUTH = BODY.h * 0.46;
 const CX = BODY.x + BODY.w / 2;
 const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 
-function templateBg(templateId: string) {
-  return TEMPLATES.find((t) => t.id === templateId)?.background ?? TEMPLATES[0].background;
+/** Wax seal outline: a slightly uneven scalloped disc */
+const WAX = Array.from({ length: 90 }, (_, i) => {
+  const a = (i / 90) * Math.PI * 2;
+  const r = 45 + 2.2 * Math.sin(a * 11) + 1.3 * Math.sin(a * 5 + 1);
+  return `${(50 + Math.cos(a) * r).toFixed(1)},${(50 + Math.sin(a) * r).toFixed(1)}`;
+}).join(' ');
+
+/** The wax and the scene take the sender's colours */
+const TONES = {
+  moon: { wax: ['#9AA6EC', '#4A56A0', '#262D6B'], spark: '#FFFFFF' },
+  sun: { wax: ['#FFD98A', '#F2A541', '#C5601C'], spark: '#FFE2A0' },
+};
+
+const SPARK_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315];
+
+/** Stars around a letter from the Moon (sizes in cqw of the stage) */
+const TWINKLES = [
+  { left: '2%', top: '6%', s: 3.4, d: 3.6, t: 0 },
+  { left: '18%', top: '-9%', s: 2.2, d: 4.4, t: -1.2 },
+  { left: '82%', top: '-6%', s: 3, d: 3.9, t: -2.4 },
+  { left: '96%', top: '18%', s: 2.2, d: 4.8, t: -0.6 },
+  { left: '-4%', top: '62%', s: 2.4, d: 4.1, t: -3 },
+  { left: '99%', top: '70%', s: 3.2, d: 3.4, t: -1.8 },
+  { left: '50%', top: '-14%', s: 2, d: 5, t: -2.9 },
+];
+
+function canMorph() {
+  return (
+    typeof document !== 'undefined' &&
+    'startViewTransition' in document &&
+    !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
 }
 
-export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevealed: () => void }) {
+export function EnvelopeReveal({
+  letter,
+  onRevealed,
+}: {
+  letter: Letter;
+  /** `morphed` is true when the small letter grew into the page (no landing animation needed) */
+  onRevealed: (morphed: boolean) => void;
+}) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [pull, setPull] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [morph] = useState(canMorph);
   const letterRef = useRef<HTMLDivElement>(null);
   const pullRef = useRef(0);
-  const maxRef = useRef(160);
   const drag = useRef({ startY: 0, startPull: 0, lastY: 0, lastT: 0, velocity: 0, moved: 0 });
   const timers = useRef<number[]>([]);
 
@@ -49,20 +91,27 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
     setPull(v);
   };
 
+  /** Measured on every use, so rotating the phone mid-pull can't leave a stale size */
+  const letterHeight = () => letterRef.current?.offsetHeight || 1;
+
   const finish = useCallback(() => {
     setPhase('exit');
-    later(onRevealed, EXIT_MS - 40);
-  }, [onRevealed]);
+    later(() => {
+      if (!morph) return onRevealed(false);
+      (document as unknown as { startViewTransition: (update: () => void) => unknown }).startViewTransition(() =>
+        flushSync(() => onRevealed(true))
+      );
+    }, EXIT_MS - 40);
+  }, [onRevealed, morph]);
 
   const open = () => {
     if (phase !== 'idle') return;
     setPhase('seal');
     later(() => setPhase('flap'), SEAL_MS);
     later(() => {
-      const h = letterRef.current?.offsetHeight ?? 200;
-      maxRef.current = h * 0.82;
       setPhase('pull');
-      setPullValue(h * PEEK);
+      setPullValue(PEEK);
+      letterRef.current?.focus({ preventScroll: true });
     }, SEAL_MS + FLAP_MS);
   };
 
@@ -78,11 +127,9 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
     if (!dragging) return;
     const d = drag.current;
     const dy = d.startY - e.clientY;
-    const max = maxRef.current;
-    const raw = d.startPull + dy;
+    const raw = d.startPull + dy / letterHeight();
     // Rubber-band past either end, like iOS overscroll.
-    const next = raw > max ? max + (raw - max) * 0.3 : raw < 0 ? raw * 0.3 : raw;
-    setPullValue(next);
+    setPullValue(raw > MAX ? MAX + (raw - MAX) * 0.3 : raw < 0 ? raw * 0.3 : raw);
 
     const dt = e.timeStamp - d.lastT;
     if (dt > 0) d.velocity = (d.lastY - e.clientY) / dt;
@@ -97,25 +144,24 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
     const d = drag.current;
     const tapped = d.moved < 5;
     const flicked = d.velocity > FLICK_VELOCITY;
-    if (tapped || flicked || pullRef.current / maxRef.current >= REVEAL_AT) {
-      finish();
-    } else {
-      setPullValue((letterRef.current?.offsetHeight ?? 200) * PEEK);
-    }
+    if (tapped || flicked || pullRef.current / MAX >= REVEAL_AT) finish();
+    else setPullValue(PEEK);
   };
 
+  const fromSun = letter.author === 'sun';
+  const tone = TONES[fromSun ? 'sun' : 'moon'];
   const flapOpen = phase === 'flap' || phase === 'pull' || phase === 'exit';
   const exiting = phase === 'exit';
-  const past = phase === 'pull' && pull / maxRef.current >= REVEAL_AT;
-  const letterLift = exiting ? maxRef.current + 80 : pull;
-  const SINK = exiting ? 'translateY(56px) scale(0.96)' : '';
-  const sinkFade = `opacity ${EXIT_MS}ms var(--ios)`;
+  const past = phase === 'pull' && pull / MAX >= REVEAL_AT;
+  // On exit the letter either stays out to grow into the page, or lifts away and fades.
+  const lift = exiting ? (morph ? Math.max(pull, 0.72) : MAX + 0.4) : pull;
   const sink = (zIndex?: number): React.CSSProperties => ({
     zIndex,
-    transform: SINK || undefined,
+    transform: exiting ? 'translateY(10cqw) scale(0.96)' : undefined,
     opacity: exiting ? 0 : 1,
-    transition: `transform ${EXIT_MS}ms var(--ios), ${sinkFade}`,
+    transition: `transform ${EXIT_MS}ms var(--ios), opacity ${EXIT_MS}ms var(--ios)`,
   });
+  const fade: React.CSSProperties = { opacity: exiting ? 0 : 1, transition: `opacity ${EXIT_MS}ms var(--ios)` };
 
   const hint =
     phase === 'idle'
@@ -124,59 +170,96 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
         ? past
           ? 'Let go to read'
           : 'Pull the letter up'
-        : ' ';
+        : ' ';
 
   return (
-    <div className="mx-auto w-full max-w-2xl select-none" style={{ touchAction: phase === 'pull' ? 'none' : 'pan-y' }}>
-      <div className={phase === 'idle' ? 'animate-envelope-float' : ''}>
-        <div
-          className="relative w-full"
-          style={{ aspectRatio: `${VB.w} / ${VB.h}`, minHeight: 260 }}
-        >
-          {/* Envelope parts are siblings of the letter (no wrapper) so z-index interleaves them;
-              each part sinks away on exit via `sink`. */}
-            {/* Shadow */}
-            <svg viewBox={`0 0 ${VB.w} ${VB.h}`} className="absolute inset-0 h-full w-full" style={sink()} aria-hidden>
-              <defs>
-                <radialGradient id="env-shadow">
-                  <stop offset="0" stopColor="#232858" stopOpacity="0.22" />
-                  <stop offset="1" stopColor="#232858" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-              <ellipse cx={CX} cy={BODY.y + BODY.h + 22} rx="230" ry="18" fill="url(#env-shadow)" />
-            </svg>
+    <div
+      className="flex w-full select-none flex-col items-center"
+      style={{ touchAction: phase === 'pull' ? 'none' : 'pan-y', '--spark': tone.spark } as React.CSSProperties}
+    >
+      <div className="mb-[clamp(2rem,9vh,4.5rem)]" style={fade}>
+        <p className="animate-fade-in-up flex items-center gap-2 font-display text-[1.6rem] font-semibold italic text-ink-800">
+          <AuthorGlyph author={letter.author} className="h-7 w-7" />
+          A letter from {authorLabel(letter.author)}
+        </p>
+      </div>
 
-            {/* Back wall / liner — visible once open */}
-            <svg viewBox={`0 0 ${VB.w} ${VB.h}`} className="absolute inset-0 h-full w-full" style={sink(1)} aria-hidden>
-              <defs>
-                <linearGradient id="env-liner" x1={BODY.x} y1={BODY.y} x2={BODY.x + BODY.w} y2={BODY.y + BODY.h} gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#C3CCF4" />
-                  <stop offset="0.5" stopColor="#F2CCDA" />
-                  <stop offset="1" stopColor="#FAD9AE" />
-                </linearGradient>
-              </defs>
-              <rect x={BODY.x} y={BODY.y} width={BODY.w} height={BODY.h} rx="14" fill="url(#env-liner)" />
-            </svg>
+      <div className="env-stage">
+        {/* Light behind the envelope: sun rays or night stars, after the sender */}
+        <div className="absolute inset-0" style={fade} aria-hidden>
+          <div className="env-aura" />
+          {fromSun ? (
+            <div className="env-rays" />
+          ) : (
+            TWINKLES.map((p) => (
+              <span
+                key={p.left}
+                className="sky-spark"
+                style={{ left: p.left, top: p.top, '--s': `${p.s}cqw`, '--d': `${p.d}s`, '--t': `${p.t}s` } as React.CSSProperties}
+              />
+            ))
+          )}
+        </div>
 
-            {/* Top flap — two faces, hinged at the top edge */}
+        {/* Envelope parts and the letter are siblings so z-index interleaves them;
+            each part sinks away on exit via `sink`. */}
+        <div className={`absolute inset-0 ${phase === 'idle' ? 'animate-envelope-float' : ''}`}>
+          {/* Shadow */}
+          <svg viewBox={`0 0 ${VB.w} ${VB.h}`} className="absolute inset-0 h-full w-full" style={sink()} aria-hidden>
+            <defs>
+              <radialGradient id="env-shadow">
+                <stop offset="0" stopColor="#232858" stopOpacity="0.24" />
+                <stop offset="1" stopColor="#232858" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <ellipse cx={CX} cy={BODY.y + BODY.h + 22} rx="230" ry="18" fill="url(#env-shadow)" />
+          </svg>
+
+          {/* Back wall / liner — visible once open */}
+          <svg viewBox={`0 0 ${VB.w} ${VB.h}`} className="absolute inset-0 h-full w-full" style={sink(1)} aria-hidden>
+            <defs>
+              <linearGradient id="env-liner" x1={BODY.x} y1={BODY.y} x2={BODY.x + BODY.w} y2={BODY.y + BODY.h} gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#B9C4F2" />
+                <stop offset="0.5" stopColor="#F2CCDA" />
+                <stop offset="1" stopColor="#FAD9AE" />
+              </linearGradient>
+              <pattern id="env-dots" width="22" height="22" patternUnits="userSpaceOnUse">
+                <circle cx="5" cy="6" r="1.3" fill="#fff" opacity="0.75" />
+                <circle cx="16" cy="17" r="1" fill="#fff" opacity="0.55" />
+              </pattern>
+            </defs>
+            <rect x={BODY.x} y={BODY.y} width={BODY.w} height={BODY.h} rx="14" fill="url(#env-liner)" />
+            <rect x={BODY.x} y={BODY.y} width={BODY.w} height={BODY.h} rx="14" fill="url(#env-dots)" />
+          </svg>
+
+          {/* Top flap — the wrapper sinks and fades; the inner hinge only rotates
+              (fading a preserve-3d element would flatten it and flash the wrong face) */}
+          <div
+            className="absolute"
+            style={{
+              left: pct(BODY.x, VB.w),
+              width: pct(BODY.w, VB.w),
+              top: pct(BODY.y, VB.h),
+              height: pct(FLAP_H, VB.h),
+              ...sink(phase === 'pull' || exiting ? 2 : 5),
+            }}
+          >
             <div
-              className="absolute"
+              className="absolute inset-0"
               style={{
-                left: pct(BODY.x, VB.w),
-                width: pct(BODY.w, VB.w),
-                top: pct(BODY.y, VB.h),
-                height: pct(FLAP_H, VB.h),
-                zIndex: phase === 'pull' || exiting ? 2 : 5,
                 transformOrigin: '50% 0%',
                 transformStyle: 'preserve-3d',
-                transform: `${SINK} perspective(1100px) rotateX(${flapOpen ? 180 : 0}deg)`,
-                opacity: exiting ? 0 : 1,
-                transition: exiting
-                  ? `transform ${EXIT_MS}ms var(--ios), ${sinkFade}`
-                  : `transform ${FLAP_MS}ms var(--spring)`,
+                transform: `perspective(1100px) rotateX(${flapOpen ? 180 : 0}deg)`,
+                transition: `transform ${FLAP_MS}ms var(--spring)`,
               }}
             >
-              <svg viewBox="0 0 464 116" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" style={{ backfaceVisibility: 'hidden' }} aria-hidden>
+              <svg
+                viewBox="0 0 464 116"
+                preserveAspectRatio="none"
+                className="absolute inset-0 h-full w-full overflow-visible"
+                style={{ backfaceVisibility: 'hidden', filter: 'drop-shadow(0 0.8cqw 1cqw rgba(35, 40, 88, 0.16))' }}
+                aria-hidden
+              >
                 <defs>
                   <linearGradient id="env-flap" x1="232" y1="0" x2="232" y2="116" gradientUnits="userSpaceOnUse">
                     <stop offset="0" stopColor="#FFFFFF" />
@@ -186,16 +269,18 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
                 <path d="M8 0H456Q464 0 458 6L246 110Q232 118 218 110L6 6Q0 0 8 0Z" fill="url(#env-flap)" />
                 <path d="M6 6 218 110Q232 118 246 110L458 6" fill="none" stroke="#CBD1EC" strokeWidth="1.2" />
               </svg>
+              {/* Inner face: turned about the vertical axis, so it keeps its wide edge on the hinge.
+                  (Turning it about the horizontal axis left the open flap upside down, floating above.) */}
               <svg
                 viewBox="0 0 464 116"
                 preserveAspectRatio="none"
                 className="absolute inset-0 h-full w-full"
-                style={{ backfaceVisibility: 'hidden', transform: 'rotateX(180deg)' }}
+                style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
                 aria-hidden
               >
                 <defs>
                   <linearGradient id="env-flap-in" x1="0" y1="0" x2="464" y2="116" gradientUnits="userSpaceOnUse">
-                    <stop offset="0" stopColor="#C3CCF4" />
+                    <stop offset="0" stopColor="#B9C4F2" />
                     <stop offset="0.5" stopColor="#F2CCDA" />
                     <stop offset="1" stopColor="#FAD9AE" />
                   </linearGradient>
@@ -203,75 +288,74 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
                 <path d="M8 0H456Q464 0 458 6L246 110Q232 118 218 110L6 6Q0 0 8 0Z" fill="url(#env-flap-in)" />
               </svg>
             </div>
+          </div>
 
-            {/* Front pocket */}
-            <svg viewBox={`0 0 ${VB.w} ${VB.h}`} className="pointer-events-none absolute inset-0 h-full w-full" style={sink(4)} aria-hidden>
-              <defs>
-                <linearGradient id="env-paper" x1={BODY.x} y1={BODY.y} x2={BODY.x + BODY.w} y2={BODY.y + BODY.h} gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#FFFFFF" />
-                  <stop offset="1" stopColor="#E3E7F6" />
-                </linearGradient>
-                <linearGradient id="env-sheen" x1={CX} y1={BODY.y} x2={CX} y2={BODY.y + BODY.h} gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.9" />
-                  <stop offset="0.3" stopColor="#FFFFFF" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path
-                d={`M${BODY.x} ${BODY.y + 6}L${CX} ${BODY.y + MOUTH}L${BODY.x + BODY.w} ${BODY.y + 6}V${BODY.y + BODY.h - 14}Q${BODY.x + BODY.w} ${BODY.y + BODY.h} ${BODY.x + BODY.w - 14} ${BODY.y + BODY.h}H${BODY.x + 14}Q${BODY.x} ${BODY.y + BODY.h} ${BODY.x} ${BODY.y + BODY.h - 14}Z`}
-                fill="url(#env-paper)"
-              />
-              <path
-                d={`M${BODY.x + 6} ${BODY.y + BODY.h - 6}L${CX - 18} ${BODY.y + BODY.h * 0.66}Q${CX} ${BODY.y + BODY.h * 0.6} ${CX + 18} ${BODY.y + BODY.h * 0.66}L${BODY.x + BODY.w - 6} ${BODY.y + BODY.h - 6}`}
-                fill="none"
-                stroke="#CBD1EC"
-                strokeWidth="1.2"
-              />
-              <path
-                d={`M${BODY.x} ${BODY.y + 6}L${CX} ${BODY.y + MOUTH}L${BODY.x + BODY.w} ${BODY.y + 6}`}
-                fill="none"
-                stroke="#D6DBF1"
-                strokeWidth="1"
-              />
-              <rect x={BODY.x} y={BODY.y} width={BODY.w} height={BODY.h} rx="14" fill="url(#env-sheen)" opacity="0.5" />
-            </svg>
+          {/* Front pocket */}
+          <svg viewBox={`0 0 ${VB.w} ${VB.h}`} className="pointer-events-none absolute inset-0 h-full w-full" style={sink(4)} aria-hidden>
+            <defs>
+              <linearGradient id="env-paper" x1={BODY.x} y1={BODY.y} x2={BODY.x + BODY.w} y2={BODY.y + BODY.h} gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#FFFFFF" />
+                <stop offset="1" stopColor="#E3E7F6" />
+              </linearGradient>
+              <linearGradient id="env-sheen" x1={CX} y1={BODY.y} x2={CX} y2={BODY.y + BODY.h} gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.9" />
+                <stop offset="0.3" stopColor="#FFFFFF" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path
+              d={`M${BODY.x} ${BODY.y + 6}L${CX} ${BODY.y + MOUTH}L${BODY.x + BODY.w} ${BODY.y + 6}V${BODY.y + BODY.h - 14}Q${BODY.x + BODY.w} ${BODY.y + BODY.h} ${BODY.x + BODY.w - 14} ${BODY.y + BODY.h}H${BODY.x + 14}Q${BODY.x} ${BODY.y + BODY.h} ${BODY.x} ${BODY.y + BODY.h - 14}Z`}
+              fill="url(#env-paper)"
+              stroke="#D6DBF1"
+              strokeWidth="1"
+            />
+            <path
+              d={`M${BODY.x + 6} ${BODY.y + BODY.h - 6}L${CX - 18} ${BODY.y + BODY.h * 0.66}Q${CX} ${BODY.y + BODY.h * 0.6} ${CX + 18} ${BODY.y + BODY.h * 0.66}L${BODY.x + BODY.w - 6} ${BODY.y + BODY.h - 6}`}
+              fill="none"
+              stroke="#CBD1EC"
+              strokeWidth="1.2"
+            />
+            <rect x={BODY.x} y={BODY.y} width={BODY.w} height={BODY.h} rx="14" fill="url(#env-sheen)" opacity="0.5" />
+          </svg>
 
-            {/* Seal — splits into a moon half and a sun half */}
-            {(phase === 'idle' || phase === 'seal') && (
-              <div
-                className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
-                style={{ left: '50%', top: pct(BODY.y + FLAP_H * 0.78, VB.h), zIndex: 6 }}
-              >
-                {phase === 'seal' && (
-                  <span className="animate-seal-glow absolute inset-0 rounded-full bg-white/80 blur-md" aria-hidden />
-                )}
-                <div className="relative h-16 w-16 sm:h-[72px] sm:w-[72px]">
-                  {(['moon', 'sun'] as const).map((half) => (
-                    <div
-                      key={half}
-                      className={`absolute inset-0 ${
-                        phase === 'seal' ? (half === 'moon' ? 'animate-seal-moon' : 'animate-seal-sun') : ''
-                      }`}
-                      style={{ clipPath: half === 'moon' ? 'inset(0 50% 0 0)' : 'inset(0 0 0 50%)' }}
-                    >
-                      {/* No backdrop-filter here: under a clip-path Chromium paints it as a square */}
-                      <div className="flex h-full w-full items-center justify-center rounded-full border border-white bg-gradient-to-b from-white to-mist-100 shadow-[0_6px_16px_-6px_rgba(35,40,88,0.35),inset_0_1px_0_#fff]">
-                        <LogoMark className="h-9 w-9 sm:h-10 sm:w-10" />
-                      </div>
-                    </div>
-                  ))}
+          {/* Wax seal in the sender's colour — cracks down the middle with a burst of sparks */}
+          {(phase === 'idle' || phase === 'seal') && (
+            <div
+              className={`env-seal ${phase === 'seal' ? 'env-seal--breaking' : 'env-seal--idle'}`}
+              style={{ top: pct(BODY.y + FLAP_H * 0.8, VB.h) }}
+            >
+              <span className="env-seal__glow" aria-hidden />
+              {SPARK_ANGLES.map((a) => (
+                <span key={a} className="env-spark" style={{ '--a': `${a}deg` } as React.CSSProperties} aria-hidden />
+              ))}
+              {(['l', 'r'] as const).map((half) => (
+                <div key={half} className={`env-seal__half env-seal__half--${half}`}>
+                  <svg viewBox="0 0 100 100" className="h-full w-full overflow-visible" aria-hidden>
+                    <defs>
+                      <radialGradient id={`env-wax-${half}`} cx="36%" cy="30%" r="75%">
+                        <stop offset="0" stopColor={tone.wax[0]} />
+                        <stop offset="0.55" stopColor={tone.wax[1]} />
+                        <stop offset="1" stopColor={tone.wax[2]} />
+                      </radialGradient>
+                    </defs>
+                    <polygon points={WAX} fill={`url(#env-wax-${half})`} strokeLinejoin="round" />
+                    <circle cx="50" cy="50" r="34" fill="none" stroke="#000" strokeOpacity="0.16" strokeWidth="1.2" />
+                    <circle cx="50" cy="50" r="31.5" fill="none" stroke="#fff" strokeOpacity="0.32" strokeWidth="1.4" />
+                  </svg>
+                  <LogoMark className="absolute left-[25%] top-[25%] h-1/2 w-1/2" />
                 </div>
-              </div>
-            )}
+              ))}
+            </div>
+          )}
 
-            {phase === 'idle' && (
-              <button
-                type="button"
-                onClick={open}
-                aria-label="Break the seal and open the letter"
-                className="absolute inset-0 cursor-pointer rounded-3xl"
-                style={{ zIndex: 7 }}
-              />
-            )}
+          {phase === 'idle' && (
+            <button
+              type="button"
+              onClick={open}
+              aria-label="Break the seal and open the letter"
+              className="absolute inset-0 cursor-pointer rounded-3xl"
+              style={{ zIndex: 7 }}
+            />
+          )}
 
           {/* The letter */}
           <div
@@ -300,43 +384,57 @@ export function EnvelopeReveal({ letter, onRevealed }: { letter: Letter; onRevea
                   finish();
                 }
               }}
-              className={`relative h-full w-full ${phase === 'pull' ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
-              style={{
-                transform: `translateY(${-letterLift}px) scale(${exiting ? 1.05 : past ? 1.02 : 1})`,
-                opacity: exiting ? 0 : 1,
-                transition: dragging
-                  ? 'transform 0.12s var(--ios)'
-                  : exiting
-                    ? `transform ${EXIT_MS}ms var(--ios), opacity ${EXIT_MS}ms var(--ios)`
-                    : 'transform 0.7s var(--spring)',
-              }}
+              className={`relative h-full w-full outline-none ${phase === 'pull' ? 'cursor-grab touch-none active:cursor-grabbing' : ''}`}
+              style={
+                {
+                  transform: `translateY(${-lift * 100}%) scale(${exiting ? 1.04 : past ? 1.02 : 1})`,
+                  opacity: exiting && !morph ? 0 : 1,
+                  transition: dragging
+                    ? 'transform 0.12s var(--ios)'
+                    : exiting
+                      ? `transform ${EXIT_MS}ms var(--ios), opacity ${EXIT_MS}ms var(--ios)`
+                      : 'transform 0.7s var(--spring)',
+                  viewTransitionName: exiting && morph ? 'letter-sheet' : undefined,
+                } as React.CSSProperties
+              }
             >
+              {/* Sits above the letter, not on it, and steps aside once the letter is being pulled */}
               {phase === 'pull' && (
-                <span className="glass absolute -top-4 left-1/2 z-10 flex h-8 -translate-x-1/2 items-center gap-1 rounded-full px-3 font-body text-[12px] font-semibold text-ink-700">
+                <span
+                  className="glass absolute bottom-full left-1/2 z-10 mb-[1.8cqw] flex h-8 -translate-x-1/2 items-center gap-1 rounded-full px-3 font-body text-[12px] font-semibold text-ink-700 transition-opacity duration-300"
+                  style={{ opacity: !dragging && pull <= PEEK + 0.04 ? 1 : 0 }}
+                >
                   <svg viewBox="0 0 12 12" className="animate-nudge-up h-3 w-3" aria-hidden>
                     <path d="M2.5 7.5 6 4l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   Pull
                 </span>
               )}
-              <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl bg-parchment-50 p-1.5 shadow-[0_8px_24px_-8px_rgba(35,40,88,0.35)] ring-1 ring-black/5">
-                <p className="truncate px-3 pb-1.5 pt-3 text-center font-letter text-[15px] font-semibold text-ink-800">
+              {/* The real paper in miniature, so what comes out is what you then read */}
+              <PaperSheet
+                template={letter.template}
+                view="paper"
+                className="h-full rounded-[3cqw] shadow-[0_8px_24px_-8px_rgba(35,40,88,0.4)] ring-1 ring-black/5"
+              >
+                <p className="truncate text-center font-letter font-semibold leading-tight text-ink-800" style={{ fontSize: '5.6cqw' }}>
                   {letter.title}
                 </p>
-                <div
-                  className="min-h-0 flex-1 rounded-xl bg-cover bg-top"
-                  style={{ backgroundImage: `url(${templateBg(letter.template)})` }}
-                />
-              </div>
+                <p
+                  className="line-clamp-3 whitespace-pre-wrap font-letter leading-relaxed text-ink-800/70"
+                  style={{ fontSize: '3.4cqw', marginTop: '2.4cqw' }}
+                >
+                  {letter.content}
+                </p>
+              </PaperSheet>
             </div>
           </div>
         </div>
       </div>
 
-      <p className="mt-10 flex justify-center" aria-live="polite">
+      <p className="mt-[clamp(1.5rem,6vh,2.5rem)] flex justify-center" aria-live="polite">
         <span
           className={`glass rounded-full px-4 py-2 font-body text-[14px] font-medium transition-all duration-300 ease-ios ${
-            hint === ' ' ? 'opacity-0' : 'opacity-100'
+            hint === ' ' || exiting ? 'opacity-0' : 'opacity-100'
           } ${past ? 'text-ink-800' : 'text-ink-500'}`}
         >
           {hint}
